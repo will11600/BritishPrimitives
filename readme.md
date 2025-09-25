@@ -1,1 +1,1 @@
-![British Primitives](/Workmark.svg?raw=true)
+![British Primitives](/Wordmark.svg?raw=true)
