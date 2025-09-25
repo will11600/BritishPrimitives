@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BritishPrimitives", "BritishPrimitives\BritishPrimitives.csproj", "{5243EEA5-AB33-45CC-8281-15C298D7CE64}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BritishPrimitives.Tests", "BritishPrimitives.Tests\BritishPrimitives.Tests.csproj", "{254B826A-87B2-4381-8C20-B12ADDC8DF4F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5243EEA5-AB33-45CC-8281-15C298D7CE64}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5243EEA5-AB33-45CC-8281-15C298D7CE64}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5243EEA5-AB33-45CC-8281-15C298D7CE64}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5243EEA5-AB33-45CC-8281-15C298D7CE64}.Release|Any CPU.Build.0 = Release|Any CPU
+		{254B826A-87B2-4381-8C20-B12ADDC8DF4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{254B826A-87B2-4381-8C20-B12ADDC8DF4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{254B826A-87B2-4381-8C20-B12ADDC8DF4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{254B826A-87B2-4381-8C20-B12ADDC8DF4F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C40D0AFF-4F6F-45C6-B423-817A778EC541}
+	EndGlobalSection
+EndGlobal
