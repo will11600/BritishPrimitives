@@ -66,7 +66,7 @@ internal readonly struct UInt48 : IEquatable<UInt48>
 
     public override int GetHashCode()
     {
-        return (int)_lo ^ _hi;
+        return HashCode.Combine(_lo.GetHashCode(), _hi.GetHashCode());
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
