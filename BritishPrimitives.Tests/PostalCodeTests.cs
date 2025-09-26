@@ -1,6 +1,6 @@
 ﻿namespace BritishPrimitives.Tests;
 
-public class BritishPostalCodeTests
+public class PostalCodeTests
 {
     [Theory]
     [InlineData("M1 1AA")]
@@ -17,7 +17,7 @@ public class BritishPostalCodeTests
     public void TryParse_WithValidPostcodes_ShouldSucceed(string postcodeString)
     {
         // Act
-        var result = BritishPostalCode.TryParse(postcodeString, null, out var postcode);
+        var result = PostalCode.TryParse(postcodeString, null, out var postcode);
 
         // Assert
         Assert.True(result);
@@ -43,7 +43,7 @@ public class BritishPostalCodeTests
     public void TryParse_WithInvalidPostcodes_ShouldFail(string? postcodeString)
     {
         // Act
-        var result = BritishPostalCode.TryParse(postcodeString, null, out _);
+        var result = PostalCode.TryParse(postcodeString, null, out _);
 
         // Assert
         Assert.False(result);
@@ -53,7 +53,7 @@ public class BritishPostalCodeTests
     public void TryFormat_WithShorthandFormat_ShouldReturnPostcodeWithoutSpace()
     {
         // Arrange
-        BritishPostalCode.TryParse("SW1A 0AA", null, out var postcode);
+        PostalCode.TryParse("SW1A 0AA", null, out var postcode);
         Span<char> destination = new char[10];
 
         // Act
@@ -69,7 +69,7 @@ public class BritishPostalCodeTests
     public void TryFormat_WithUppercaseShorthandFormat_ShouldReturnPostcodeWithoutSpace()
     {
         // Arrange
-        BritishPostalCode.TryParse("EC1A 1BB", null, out var postcode);
+        PostalCode.TryParse("EC1A 1BB", null, out var postcode);
         Span<char> destination = new char[10];
 
         // Act
@@ -85,7 +85,7 @@ public class BritishPostalCodeTests
     public void TryFormat_WithDefaultFormat_ShouldReturnPostcodeWithSpace()
     {
         // Arrange
-        BritishPostalCode.TryParse("M60 1NW", null, out var postcode);
+        PostalCode.TryParse("M60 1NW", null, out var postcode);
         Span<char> destination = new char[10];
 
         // Act
@@ -101,7 +101,7 @@ public class BritishPostalCodeTests
     public void TryFormat_WithNullFormat_ShouldReturnPostcodeWithSpace()
     {
         // Arrange
-        BritishPostalCode.TryParse("M60 1NW", null, out var postcode);
+        PostalCode.TryParse("M60 1NW", null, out var postcode);
         Span<char> destination = new char[10];
 
         // Act
@@ -118,7 +118,7 @@ public class BritishPostalCodeTests
     public void TryFormat_WithInsufficientSpace_ShouldFail()
     {
         // Arrange
-        BritishPostalCode.TryParse("CR2 6XH", null, out var postcode);
+        PostalCode.TryParse("CR2 6XH", null, out var postcode);
         Span<char> destination = new char[5];
 
         // Act
@@ -133,8 +133,8 @@ public class BritishPostalCodeTests
     public void Equals_WithTwoEqualPostcodes_ShouldReturnTrue()
     {
         // Arrange
-        BritishPostalCode.TryParse("DN55 1PT", null, out var postcode1);
-        BritishPostalCode.TryParse("dn55 1pt", null, out var postcode2);
+        PostalCode.TryParse("DN55 1PT", null, out var postcode1);
+        PostalCode.TryParse("dn55 1pt", null, out var postcode2);
 
         // Assert
         Assert.True(postcode1.Equals(postcode2));
@@ -146,8 +146,8 @@ public class BritishPostalCodeTests
     public void Equals_WithTwoDifferentPostcodes_ShouldReturnFalse()
     {
         // Arrange
-        BritishPostalCode.TryParse("M1 1AA", null, out var postcode1);
-        BritishPostalCode.TryParse("M1 1AB", null, out var postcode2);
+        PostalCode.TryParse("M1 1AA", null, out var postcode1);
+        PostalCode.TryParse("M1 1AB", null, out var postcode2);
 
         // Assert
         Assert.False(postcode1.Equals(postcode2));
@@ -159,7 +159,7 @@ public class BritishPostalCodeTests
     public void ToString_FormatsCorrectly()
     {
         // Arrange
-        BritishPostalCode.TryParse("PO1 3AX", null, out var postcode);
+        PostalCode.TryParse("PO1 3AX", null, out var postcode);
 
         // Act
         var result = postcode.ToString();

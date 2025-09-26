@@ -8,7 +8,7 @@ namespace BritishPrimitives;
 /// A compact representation of a UK postcode (postal code) using two 32-bit unsigned integers.
 /// </summary>
 [StructLayout(LayoutKind.Explicit, Size = 8)]
-public readonly struct BritishPostalCode : IEquatable<BritishPostalCode>, ISpanParsable<BritishPostalCode>, ISpanFormattable
+public readonly struct PostalCode : IEquatable<PostalCode>, ISpanParsable<PostalCode>, ISpanFormattable
 {
     private const string GirobankBootle = "GIR0AA";
 
@@ -20,7 +20,7 @@ public readonly struct BritishPostalCode : IEquatable<BritishPostalCode>, ISpanP
     [FieldOffset(4)]
     private readonly uint _inward;
 
-    private BritishPostalCode(uint outward, uint inward)
+    private PostalCode(uint outward, uint inward)
     {
         _outward = outward;
         _inward = inward;
@@ -96,18 +96,18 @@ public readonly struct BritishPostalCode : IEquatable<BritishPostalCode>, ISpanP
     }
 
     /// <summary>
-    /// Indicates whether the current object is equal to another <see cref="BritishPostalCode"/>.
+    /// Indicates whether the current object is equal to another <see cref="PostalCode"/>.
     /// </summary>
-    /// <param name="other">A <see cref="BritishPostalCode"/> to compare with this object.</param>
+    /// <param name="other">A <see cref="PostalCode"/> to compare with this object.</param>
     /// <returns><see langword="true"/> if the current object is equal to the <paramref name="other"/> parameter; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(BritishPostalCode other)
+    public bool Equals(PostalCode other)
     {
         return _outward == other._outward && _inward == other._inward;
     }
 
     public override bool Equals(object? obj)
     {
-        return obj is BritishPostalCode other && Equals(other);
+        return obj is PostalCode other && Equals(other);
     }
 
     public override int GetHashCode()
@@ -116,13 +116,13 @@ public readonly struct BritishPostalCode : IEquatable<BritishPostalCode>, ISpanP
     }
 
     /// <summary>
-    /// Converts the character span representation of a UK postcode to its <see cref="BritishPostalCode"/> equivalent.
+    /// Converts the character span representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
     /// </summary>
     /// <param name="s">A span of characters containing the postcode to convert.</param>
     /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <returns>A <see cref="BritishPostalCode"/> that is equivalent to the postcode contained in <paramref name="s"/>.</returns>
+    /// <returns>A <see cref="PostalCode"/> that is equivalent to the postcode contained in <paramref name="s"/>.</returns>
     /// <exception cref="FormatException"><paramref name="s"/> is not in a valid UK postcode format.</exception>
-    public static BritishPostalCode Parse(ReadOnlySpan<char> s, IFormatProvider? provider = null)
+    public static PostalCode Parse(ReadOnlySpan<char> s, IFormatProvider? provider = null)
     {
         if (!TryParse(s, provider, out var result))
         {
@@ -133,28 +133,28 @@ public readonly struct BritishPostalCode : IEquatable<BritishPostalCode>, ISpanP
     }
 
     /// <summary>
-    /// Converts the string representation of a UK postcode to its <see cref="BritishPostalCode"/> equivalent.
+    /// Converts the string representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
     /// </summary>
     /// <param name="s">A string containing the postcode to convert.</param>
     /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <returns>A <see cref="BritishPostalCode"/> that is equivalent to the postcode contained in <paramref name="s"/>.</returns>
+    /// <returns>A <see cref="PostalCode"/> that is equivalent to the postcode contained in <paramref name="s"/>.</returns>
     /// <exception cref="FormatException"><paramref name="s"/> is null or not in a valid UK postcode format.</exception>
-    public static BritishPostalCode Parse(string s, IFormatProvider? provider = null)
+    public static PostalCode Parse(string s, IFormatProvider? provider = null)
     {
         return Parse(s.AsSpan(), provider);
     }
 
     /// <summary>
-    /// Tries to convert the character span representation of a UK postcode to its <see cref="BritishPostalCode"/> equivalent.
+    /// Tries to convert the character span representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
     /// </summary>
     /// <param name="s">A span of characters containing the postcode to convert.</param>
     /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <param name="result">When this method returns, contains the <see cref="BritishPostalCode"/> equivalent of <paramref name="s"/> if the conversion succeeded, or a default value if the conversion failed.</param>
+    /// <param name="result">When this method returns, contains the <see cref="PostalCode"/> equivalent of <paramref name="s"/> if the conversion succeeded, or a default value if the conversion failed.</param>
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// This method does not throw an exception on failure. It validates against all standard UK postcode patterns and is case-insensitive.
     /// </remarks>
-    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out BritishPostalCode result)
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PostalCode result)
     {
         result = default;
 
@@ -164,7 +164,7 @@ public readonly struct BritishPostalCode : IEquatable<BritishPostalCode>, ISpanP
         }
 
         Span<char> clean = stackalloc char[s.Length];
-        clean = clean[..RemoveWhitespace(s, clean)];
+        clean = clean[..CharUtils.TrimAndMakeUpperInvariant(s, clean)];
 
         if (clean.Length is < 5 or > 7)
         {
@@ -190,75 +190,60 @@ public readonly struct BritishPostalCode : IEquatable<BritishPostalCode>, ISpanP
         var outward = Pack(outwardCode, 4);
         var inward = Pack(inwardCode, 4);
 
-        result = new BritishPostalCode(outward, inward);
+        result = new PostalCode(outward, inward);
         return true;
     }
 
     /// <summary>
-    /// Tries to convert the string representation of a UK postcode to its <see cref="BritishPostalCode"/> equivalent.
+    /// Tries to convert the string representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
     /// </summary>
     /// <param name="s">A string containing the postcode to convert.</param>
     /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <param name="result">When this method returns, contains the <see cref="BritishPostalCode"/> equivalent of <paramref name="s"/> if the conversion succeeded, or a default value if the conversion failed.</param>
+    /// <param name="result">When this method returns, contains the <see cref="PostalCode"/> equivalent of <paramref name="s"/> if the conversion succeeded, or a default value if the conversion failed.</param>
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// This method does not throw an exception on failure. It validates against all standard UK postcode patterns and is case-insensitive.
     /// </remarks>
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out BritishPostalCode result)
+    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PostalCode result)
     {
         return TryParse(s.AsSpan(), provider, out result);
     }
 
     /// <summary>
-    /// Compares two <see cref="BritishPostalCode"/> values for equality.
+    /// Compares two <see cref="PostalCode"/> values for equality.
     /// </summary>
     /// <param name="left">The first value to compare.</param>
     /// <param name="right">The second value to compare.</param>
     /// <returns><see langword="true"/> if the two values are equal; otherwise, <see langword="false"/>.</returns>
-    public static bool operator ==(BritishPostalCode left, BritishPostalCode right)
+    public static bool operator ==(PostalCode left, PostalCode right)
     {
         return left.Equals(right);
     }
 
     /// <summary>
-    /// Compares two <see cref="BritishPostalCode"/> values for inequality.
+    /// Compares two <see cref="PostalCode"/> values for inequality.
     /// </summary>
     /// <param name="left">The first value to compare.</param>
     /// <param name="right">The second value to compare.</param>
     /// <returns><see langword="true"/> if the two values are not equal; otherwise, <see langword="false"/>.</returns>
-    public static bool operator !=(BritishPostalCode left, BritishPostalCode right)
+    public static bool operator !=(PostalCode left, PostalCode right)
     {
         return !left.Equals(right);
     }
 
     /// <summary>
-    /// Explicitly converts a <see cref="BritishPostalCode"/> to its 64-bit unsigned integer representation.
+    /// Explicitly converts a <see cref="PostalCode"/> to its 64-bit unsigned integer representation.
     /// </summary>
     /// <param name="code">The postcode to convert.</param>
     /// <returns>The <see langword="ulong"/> representation of the postcode.</returns>
-    public static explicit operator ulong(BritishPostalCode code) => (ulong)code._outward << 32 | code._inward;
+    public static explicit operator ulong(PostalCode code) => (ulong)code._outward << 32 | code._inward;
 
     /// <summary>
-    /// Explicitly converts a 64-bit unsigned integer to its <see cref="BritishPostalCode"/> representation.
+    /// Explicitly converts a 64-bit unsigned integer to its <see cref="PostalCode"/> representation.
     /// </summary>
     /// <param name="value">The <see langword="ulong"/> value to convert.</param>
-    /// <returns>The <see cref="BritishPostalCode"/> representation of the value.</returns>
-    public static explicit operator BritishPostalCode(ulong value) => new((uint)(value >> 32), (uint)(value & 0xFFFFFFFF));
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int RemoveWhitespace(ReadOnlySpan<char> input, Span<char> output)
-    {
-        int length = 0;
-        for (int i = 0; i < input.Length; i++)
-        {
-            ref readonly char c = ref input[i];
-            if (!char.IsWhiteSpace(c))
-            {
-                output[length++] = char.ToUpperInvariant(c);
-            }
-        }
-        return length;
-    }
+    /// <returns>The <see cref="PostalCode"/> representation of the value.</returns>
+    public static explicit operator PostalCode(ulong value) => new((uint)(value >> 32), (uint)(value & 0xFFFFFFFF));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsValidInwardCode(ReadOnlySpan<char> inward)

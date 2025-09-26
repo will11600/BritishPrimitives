@@ -1,4 +1,6 @@
-﻿namespace BritishPrimitives;
+﻿using System.Runtime.CompilerServices;
+
+namespace BritishPrimitives;
 
 internal static class CharUtils
 {
@@ -53,5 +55,20 @@ internal static class CharUtils
 
         result = default;
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int TrimAndMakeUpperInvariant(ReadOnlySpan<char> input, Span<char> output)
+    {
+        int length = 0;
+        for (int i = 0; i < input.Length; i++)
+        {
+            ref readonly char c = ref input[i];
+            if (!char.IsWhiteSpace(c))
+            {
+                output[length++] = char.ToUpperInvariant(c);
+            }
+        }
+        return length;
     }
 }
