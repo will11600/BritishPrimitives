@@ -42,6 +42,12 @@ internal readonly struct UInt48 : IEquatable<UInt48>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static UInt48 operator |(UInt48 left, ulong right)
+    {
+        return new UInt48((ulong)left | right);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(UInt48 left, UInt48 right)
     {
         return left._lo == right._lo && left._hi == right._hi;
