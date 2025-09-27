@@ -12,7 +12,7 @@ namespace BritishPrimitives;
 /// A National Insurance Number consists of two prefix letters, six digits, and a suffix letter.
 /// It is stored internally in a compact, read-only form.
 /// </remarks>
-public readonly struct NationalInsuranceNumber : IEquatable<NationalInsuranceNumber>, ISpanParsable<NationalInsuranceNumber>, ISpanFormattable
+public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumber>
 {
     private readonly struct UnpackedNationalInsuranceNumber(uint lo, byte hi)
     {

@@ -8,7 +8,7 @@ namespace BritishPrimitives;
 /// A compact representation of a UK postcode (postal code) using two 32-bit unsigned integers.
 /// </summary>
 [StructLayout(LayoutKind.Explicit, Size = 8)]
-public readonly struct PostalCode : IEquatable<PostalCode>, ISpanParsable<PostalCode>, ISpanFormattable
+public readonly struct PostalCode : IPrimitive<PostalCode>
 {
     private const string GirobankBootle = "GIR0AA";
 

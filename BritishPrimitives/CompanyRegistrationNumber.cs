@@ -5,7 +5,7 @@ namespace BritishPrimitives;
 /// <summary>
 /// Represents a UK Company Registration Number (CRN).
 /// </summary>
-public readonly struct CompanyRegistrationNumber : IEquatable<CompanyRegistrationNumber>, ISpanParsable<CompanyRegistrationNumber>, ISpanFormattable
+public readonly struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationNumber>
 {
     private const int CharCount = 8;
     private const int BitsPerChar = 6;
