@@ -4,40 +4,38 @@ namespace BritishPrimitives;
 
 internal static class CharUtils
 {
+    public const int BitsPerByte = 8;
+    public const int LetterBits = 5;
+    public const int NumeralBits = 4;
+    public const int AlphanumericBits = 6;
+
     public const string AlphanumericChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    public const int AlphabetOffset = 10;
 
-    public static ReadOnlySpan<char> AlphabeticalChars => AlphanumericChars.AsSpan(10);
+    public const char UppercaseA = 'A';
+    public const char UppercaseZ = 'Z';
+    public const char LowercaseA = 'a';
+    public const char LowercaseZ = 'z';
+    public const char Zero = '0';
+    public const char Nine = '9';
+    public const char Whitespace = ' ';
 
-    public static ReadOnlySpan<char> NumericalChars => AlphanumericChars.AsSpan(0, 10);
+    public static ReadOnlySpan<char> AlphabeticalChars => AlphanumericChars.AsSpan(AlphabetOffset);
+
+    public static ReadOnlySpan<char> NumericalChars => AlphanumericChars.AsSpan(0, AlphabetOffset);
 
     public static bool TryEncodeAlphanumeric(ref readonly char c, out int result)
     {
         switch (c)
         {
-            case >= '0' and <= '9':
-                result = c - '0';
+            case >= Zero and <= Nine:
+                result = c - Zero;
                 return true;
-            case >= 'A' and <= 'Z':
-                result = c - 'A' + 10;
+            case >= UppercaseA and <= UppercaseZ:
+                result = c - UppercaseA + AlphabetOffset;
                 return true;
-            case >= 'a' and <= 'z':
-                result = c - 'a' + 10;
-                return true;
-            default:
-                result = default;
-                return false;
-        }
-    }
-
-    public static bool TryEncodeAlphabetical(ref readonly char c, out int result)
-    {
-        switch (c)
-        {
-            case >= 'A' and <= 'Z':
-                result = c - 'A' + 10;
-                return true;
-            case >= 'a' and <= 'z':
-                result = c - 'a' + 10;
+            case >= LowercaseA and <= LowercaseZ:
+                result = c - LowercaseA + AlphabetOffset;
                 return true;
             default:
                 result = default;
@@ -45,16 +43,23 @@ internal static class CharUtils
         }
     }
 
-    public static bool TryEncodeNumeric(ref readonly char c, out int result)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryFail<T>(out T value) where T : struct
     {
-        if (c is >= '0' and <= '9')
-        {
-            result = c - '0';
-            return true;
-        }
-
-        result = default;
+        value = default;
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static byte UppercaseEncode(char c)
+    {
+        return (byte)(c - UppercaseA);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static byte NumeralEncode(char c)
+    {
+        return (byte)(c - Zero);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -70,5 +75,29 @@ internal static class CharUtils
             }
         }
         return length;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryParseAlphanumericUpperInvariant(ReadOnlySpan<char> input, Span<char> output, out int charsWritten)
+    {
+        for (charsWritten = 0; charsWritten < input.Length && charsWritten < output.Length; charsWritten++)
+        {
+            ref readonly char c = ref input[charsWritten];
+
+            switch (c)
+            {
+                case >= UppercaseA and <= UppercaseZ:
+                case >= Zero and <= Nine:
+                    output[charsWritten] = c;
+                    break;
+                case >= LowercaseA and <= LowercaseZ:
+                    output[charsWritten] = char.ToUpperInvariant(c);
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        return true;
     }
 }
