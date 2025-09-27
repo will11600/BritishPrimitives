@@ -125,13 +125,13 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
             return TryFail(out result);
         }
 
-        for (var (i, j) = (0, DigitBits); i < PrefixLength; (i, j) = (i + 1, j + LetterBits))
+        for (int i = 0; i < PrefixLength; i++)
         {
             ref readonly char c = ref prefix[i];
 
             if (IsValidPrefixLetter(c, i))
             {
-                lo |= (uint)UppercaseEncode(sanitized[i]) << j;
+                lo |= (uint)UppercaseEncode(sanitized[i]) << (DigitBits + (LetterBits * i));
                 continue;
             }
 
