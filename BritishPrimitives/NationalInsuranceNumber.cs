@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using static BritishPrimitives.CharUtils;
 
 namespace BritishPrimitives;
@@ -12,6 +13,7 @@ namespace BritishPrimitives;
 /// A National Insurance Number consists of two prefix letters, six digits, and a suffix letter.
 /// It is stored internally in a compact, read-only form.
 /// </remarks>
+[StructLayout(LayoutKind.Explicit, Size = 5)]
 public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumber>
 {
     private readonly struct UnpackedNationalInsuranceNumber(uint lo, byte hi)
@@ -40,8 +42,11 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
 
     private const int DigitBits = 20;
     private const string DigitFormat = "D6";
-    
+
+    [FieldOffset(0)]
     private readonly uint _lo;
+
+    [FieldOffset(4)]
     private readonly byte _hi;
     
     private NationalInsuranceNumber(uint lo, byte hi)
