@@ -93,6 +93,8 @@ internal static class CharUtils
                 case >= LowercaseA and <= LowercaseZ:
                     output[charsWritten] = char.ToUpperInvariant(c);
                     break;
+                case Whitespace:
+                    break;
                 default:
                     return false;
             }
