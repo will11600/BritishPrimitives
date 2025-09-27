@@ -270,6 +270,26 @@ public readonly struct NationalInsuranceNumber : IEquatable<NationalInsuranceNum
         return !(left == right);
     }
 
+    /// <summary>
+    /// Explicitly converts a <see cref="NationalInsuranceNumber"/> to its 64-bit unsigned integer representation.
+    /// </summary>
+    /// <param name="ni">The national insurance number to convert.</param>
+    /// <returns>The <see langword="ulong"/> representation of the national insurance number.</returns>
+    public static explicit operator ulong(NationalInsuranceNumber ni)
+    {
+        return (ulong)ni._hi << (sizeof(uint) * BitsPerByte) | ni._lo;
+    }
+
+    /// <summary>
+    /// Explicitly converts a 64-bit unsigned integer to its <see cref="NationalInsuranceNumber"/> representation.
+    /// </summary>
+    /// <param name="value">The <see langword="ulong"/> value to convert.</param>
+    /// <returns>The <see cref="NationalInsuranceNumber"/> representation of the value.</returns>
+    public static explicit operator NationalInsuranceNumber(ulong value)
+    {
+        return new NationalInsuranceNumber((uint)value, (byte)(value >> (sizeof(uint) * BitsPerByte)));
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryFormatSpaced(ref readonly UnpackedNationalInsuranceNumber unpacked, Span<char> destination, out int charsWritten, IFormatProvider? provider)
     {
