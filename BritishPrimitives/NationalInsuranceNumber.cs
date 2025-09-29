@@ -108,7 +108,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
         Span<char> sanitized = stackalloc char[NiStringLength];
         if (!TryParseAlphanumericUpperInvariant(s, sanitized, out int charsWritten) || charsWritten != NiStringLength)
         {
-            return TryFail(out result);
+            return FalseOutDefault(out result);
         }
 
         Span<char> prefix = sanitized[0..PrefixLength];
@@ -116,13 +116,13 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
         {
             if (prefix.SequenceEqual(IllegalPrefixes.AsSpan(i, PrefixLength)))
             {
-                return TryFail(out result);
+                return FalseOutDefault(out result);
             }
         }
 
         if (!uint.TryParse(sanitized[PrefixLength..SuffixOffset], out uint lo) || lo > 999999U)
         {
-            return TryFail(out result);
+            return FalseOutDefault(out result);
         }
 
         for (int i = 0; i < PrefixLength; i++)
@@ -135,7 +135,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
                 continue;
             }
 
-            return TryFail(out result);
+            return FalseOutDefault(out result);
         }
 
         byte hi = UppercaseEncode(sanitized[^1]);
@@ -158,7 +158,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     {
         if (s is null)
         {
-            return TryFail(out result);
+            return FalseOutDefault(out result);
         }
 
         return TryParse(s.AsSpan(), provider, out result);
@@ -301,7 +301,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
         Span<char> digitChars = stackalloc char[SuffixOffset];
         if (!unpacked.digits.TryFormat(digitChars, out _, DigitFormat, provider))
         {
-            return TryFail(out charsWritten);
+            return FalseOutDefault(out charsWritten);
         }
 
         destination[00] = unpacked.prefix1;
@@ -330,7 +330,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
 
         if (!unpacked.digits.TryFormat(destination.Slice(PrefixLength, SuffixOffset), out _, DigitFormat, provider))
         {
-            return TryFail(out charsWritten);
+            return FalseOutDefault(out charsWritten);
         }
 
         destination[NiStringLength - 1] = unpacked.suffix;

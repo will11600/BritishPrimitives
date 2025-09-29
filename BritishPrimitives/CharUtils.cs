@@ -44,7 +44,7 @@ internal static class CharUtils
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryFail<T>(out T value) where T : struct
+    public static bool FalseOutDefault<T>(out T value) where T : struct
     {
         value = default;
         return false;
