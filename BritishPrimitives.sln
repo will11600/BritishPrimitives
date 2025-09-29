@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BritishPrimitives", "Britis
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BritishPrimitives.Tests", "BritishPrimitives.Tests\BritishPrimitives.Tests.csproj", "{254B826A-87B2-4381-8C20-B12ADDC8DF4F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BritishPrimitives.EntityFramework", "BritishPrimitives.EntityFramework\BritishPrimitives.EntityFramework.csproj", "{297DC883-13A5-4D64-927A-35E2CCBFD0EA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{254B826A-87B2-4381-8C20-B12ADDC8DF4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{254B826A-87B2-4381-8C20-B12ADDC8DF4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{254B826A-87B2-4381-8C20-B12ADDC8DF4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{297DC883-13A5-4D64-927A-35E2CCBFD0EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{297DC883-13A5-4D64-927A-35E2CCBFD0EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{297DC883-13A5-4D64-927A-35E2CCBFD0EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{297DC883-13A5-4D64-927A-35E2CCBFD0EA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
