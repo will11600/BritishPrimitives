@@ -1,7 +1,5 @@
 ![British Primitives](/Wordmark.svg?raw=true)
 ![NuGet Version](https://img.shields.io/nuget/v/BritishPrimitives)
-This is a C\# library that provides primitive types for common UK-specific data formats, such as postal codes, National Insurance numbers, and company registration numbers. The library is designed to be lightweight and efficient, with a focus on performance and ease of use. It also includes support for serialization and Entity Framework Core, making it easy to use in a variety of applications.
-
 ## Introduction
 
 `BritishPrimitives` is a .NET library that provides a set of primitive types for representing common UK-specific data formats. These types are designed to be lightweight and efficient, with a focus on performance and ease of use. The library also includes support for serialization and Entity Framework Core, making it easy to use in a variety of applications.
