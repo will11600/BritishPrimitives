@@ -10,6 +10,11 @@
 public interface IPrimitive<TSelf> : IEquatable<TSelf>, ISpanParsable<TSelf>, ISpanFormattable where TSelf : struct, IPrimitive<TSelf>
 {
     /// <summary>
+    /// The maximum length in characters of the <see langword="string"/> representation of <typeparamref name="TSelf"/>.
+    /// </summary>
+    public static abstract int MaxLength { get; }
+
+    /// <summary>
     /// Explicitly converts a <typeparamref name="TSelf"/> to its 64-bit unsigned integer representation.
     /// </summary>
     /// <param name="value">The <typeparamref name="TSelf"/> to convert.</param>

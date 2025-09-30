@@ -12,6 +12,9 @@ public readonly struct CompanyRegistrationNumber : IPrimitive<CompanyRegistratio
 
     private readonly UInt48 _value;
 
+    /// <inheritdoc/>
+    public static int MaxLength => CharCount;
+
     private CompanyRegistrationNumber(UInt48 value)
     {
         _value = value;

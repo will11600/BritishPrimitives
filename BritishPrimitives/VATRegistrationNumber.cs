@@ -14,6 +14,9 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     private static char GeneralFormatSpecifier => FormatSpecifiers[0];
     private static char SpaceDeliminatedFormatSpecifier => FormatSpecifiers[1];
 
+    /// <inheritdoc/>
+    public static int MaxLength { get; } = 12;
+
     private const int TypeShift = 38;
     private const ulong TypeMask = 0x3;
 

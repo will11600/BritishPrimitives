@@ -12,7 +12,8 @@ public readonly struct PostalCode : IPrimitive<PostalCode>
 {
     private const string GirobankBootle = "GIR0AA";
 
-    public const int MaxSize = 1 + sizeof(uint) * 2;
+    /// <inheritdoc/>
+    public static int MaxLength { get; } = 1 + sizeof(uint) * 2;
 
     [FieldOffset(0)]
     private readonly uint _outward;
@@ -37,9 +38,9 @@ public readonly struct PostalCode : IPrimitive<PostalCode>
     public string InwardCode => Unpack(_inward);
 
     /// <summary>
-    /// Converts the postcode to its standard string representation, with the outward and inward codes separated by a space.
-    /// </summary>
-    /// <returns>A formatted string representation of the postcode (e.g., "SW1A 0AA").</returns>
+        /// Converts the postcode to its standard string representation, with the outward and inward codes separated by a space.
+        /// </summary>
+        /// <returns>A formatted string representation of the postcode (e.g., "SW1A 0AA").</returns>
     public override string ToString()
     {
         return ToString(null, null);
@@ -105,11 +106,13 @@ public readonly struct PostalCode : IPrimitive<PostalCode>
         return _outward == other._outward && _inward == other._inward;
     }
 
+    /// <inheritdoc/>
     public override bool Equals(object? obj)
     {
         return obj is PostalCode other && Equals(other);
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode()
     {
         return HashCode.Combine(_outward, _inward);
@@ -231,18 +234,10 @@ public readonly struct PostalCode : IPrimitive<PostalCode>
         return !left.Equals(right);
     }
 
-    /// <summary>
-    /// Explicitly converts a <see cref="PostalCode"/> to its 64-bit unsigned integer representation.
-    /// </summary>
-    /// <param name="code">The postcode to convert.</param>
-    /// <returns>The <see langword="ulong"/> representation of the postcode.</returns>
+    /// <inheritdoc/>
     public static explicit operator ulong(PostalCode code) => (ulong)code._outward << 32 | code._inward;
 
-    /// <summary>
-    /// Explicitly converts a 64-bit unsigned integer to its <see cref="PostalCode"/> representation.
-    /// </summary>
-    /// <param name="value">The <see langword="ulong"/> value to convert.</param>
-    /// <returns>The <see cref="PostalCode"/> representation of the value.</returns>
+    /// <inheritdoc/>
     public static explicit operator PostalCode(ulong value) => new((uint)(value >> 32), (uint)(value & 0xFFFFFFFF));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

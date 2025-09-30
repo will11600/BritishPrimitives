@@ -34,6 +34,9 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     private static char FormatGeneral => FormatSpecifiers[0];
     private static char FormatSpaced => FormatSpecifiers[1];
 
+    /// <inheritdoc/>
+    public static int MaxLength => SpacedNiStringLength;
+
     private const int NiStringLength = 9;
     private const int SpacedNiStringLength = 13;
 
