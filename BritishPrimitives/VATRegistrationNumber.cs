@@ -5,6 +5,10 @@ using static BritishPrimitives.CharUtils;
 
 namespace BritishPrimitives;
 
+/// <summary>
+/// Represents a UK VAT Registration Number, including standard, branch,
+/// government, and health authority formats.
+/// </summary>
 [StructLayout(LayoutKind.Explicit)]
 public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
 {
@@ -48,6 +52,16 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         _hi = hi;
     }
 
+    /// <summary>
+    /// Converts the string representation of a UK VAT registration number
+    /// to its <see cref="VATRegistrationNumber"/> equivalent.
+    /// </summary>
+    /// <param name="s">A span of characters containing the VAT number to convert.</param>
+    /// <param name="provider">An object that supplies culture-specific formatting information (ignored).</param>
+    /// <returns>A <see cref="VATRegistrationNumber"/> equivalent to the number contained in <paramref name="s"/>.</returns>
+    /// <exception cref="FormatException">
+    /// <paramref name="s"/> is not in a valid UK VAT registration number format.
+    /// </exception>
     public static VATRegistrationNumber Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
         if (TryParse(s, provider, out VATRegistrationNumber result))
@@ -58,6 +72,16 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         throw new FormatException("Invalid VAT registration number format.");
     }
 
+    /// <summary>
+    /// Converts the string representation of a UK VAT registration number
+    /// to its <see cref="VATRegistrationNumber"/> equivalent.
+    /// </summary>
+    /// <param name="s">A string containing the VAT number to convert.</param>
+    /// <param name="provider">An object that supplies culture-specific formatting information (ignored).</param>
+    /// <returns>A <see cref="VATRegistrationNumber"/> equivalent to the number contained in <paramref name="s"/>.</returns>
+    /// <exception cref="FormatException">
+    /// <paramref name="s"/> is <see langword="null"/> or is not in a valid UK VAT registration number format.
+    /// </exception>
     public static VATRegistrationNumber Parse(string s, IFormatProvider? provider)
     {
         if (TryParse(s.AsSpan(), provider, out VATRegistrationNumber result))
@@ -68,6 +92,21 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         throw new FormatException("Invalid VAT registration number format.");
     }
 
+    /// <summary>
+    /// Tries to convert the string representation of a UK VAT registration number
+    /// to its <see cref="VATRegistrationNumber"/> equivalent.
+    /// </summary>
+    /// <param name="s">A span of characters containing the VAT number to convert.</param>
+    /// <param name="provider">An object that supplies culture-specific formatting information (ignored).</param>
+    /// <param name="result">
+    /// When this method returns, contains the <see cref="VATRegistrationNumber"/>
+    /// equivalent of the VAT number contained in <paramref name="s"/>, if the conversion
+    /// succeeded, or the default value if the conversion failed.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if <paramref name="s"/> was converted successfully;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out VATRegistrationNumber result)
     {
         Span<char> sanitized = stackalloc char[s.Length];
@@ -104,6 +143,21 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         return FalseOutDefault(out result);
     }
 
+    /// <summary>
+    /// Tries to convert the specified string representation of a UK VAT registration number
+    /// to its <see cref="VATRegistrationNumber"/> equivalent.
+    /// </summary>
+    /// <param name="s">A string containing the VAT number to convert.</param>
+    /// <param name="provider">An object that supplies culture-specific formatting information (ignored).</param>
+    /// <param name="result">
+    /// When this method returns, contains the <see cref="VATRegistrationNumber"/>
+    /// equivalent of the VAT number contained in <paramref name="s"/>, if the conversion
+    /// succeeded, or the default value if the conversion failed.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if <paramref name="s"/> was converted successfully;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
     public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out VATRegistrationNumber result)
     {
         if (s is null)
@@ -114,11 +168,36 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         return TryParse(s.AsSpan(), provider, out result);
     }
 
+    /// <summary>
+    /// Indicates whether the current object is equal to another object of the same type.
+    /// </summary>
+    /// <param name="other">An object to compare with this object.</param>
+    /// <returns>
+    /// <see langword="true"/> if the current object is equal to the <paramref name="other"/>
+    /// parameter; otherwise, <see langword="false"/>.
+    /// </returns>
     public bool Equals(VATRegistrationNumber other)
     {
         return _lo == other._lo && _hi == other._hi;
     }
 
+    /// <summary>
+    /// Tries to format the value of the current VAT registration number into the provided span of characters.
+    /// </summary>
+    /// <param name="destination">The span to which the VAT registration number is written.</param>
+    /// <param name="charsWritten">When this method returns, the number of characters written into <paramref name="destination"/>.</param>
+    /// <param name="format">
+    /// A read-only span of characters that contains a format specifier indicating how to format the value.
+    /// Supported formats: "G" (General/compact) and "S" (Space-delimited).
+    /// </param>
+    /// <param name="provider">An optional object that supplies culture-specific formatting information (ignored).</param>
+    /// <returns>
+    /// <see langword="true"/> if the formatting was successful; otherwise, <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    /// The 'G' format (default) produces a compact number, e.g., "GB123456789".
+    /// The 'S' format produces a space-delimited number, e.g., "GB 123 4567 89".
+    /// </remarks>
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
         char formatSpecifier = format.IsEmpty ? GeneralFormatSpecifier : char.ToUpperInvariant(format[0]);
@@ -279,6 +358,14 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         destination[charsWritten++] = Whitespace;
     }
 
+    /// <summary>
+    /// Converts the value of the current <see cref="VATRegistrationNumber"/> object to its equivalent string representation.
+    /// </summary>
+    /// <param name="format">
+    /// A string that contains the format specifier. Supported formats: "G" (General/compact) and "S" (Space-delimited).
+    /// </param>
+    /// <param name="formatProvider">An object that supplies culture-specific formatting information (ignored).</param>
+    /// <returns>The string representation of the current VAT registration number in the specified format.</returns>
     public string ToString(string? format, IFormatProvider? formatProvider)
     {
         Span<char> chars = stackalloc char[14];
@@ -290,6 +377,11 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         return string.Empty;
     }
 
+    /// <summary>
+    /// Converts the value of the current <see cref="VATRegistrationNumber"/> object to its equivalent string representation
+    /// using the general ("G") format.
+    /// </summary>
+    /// <returns>The string representation of the current VAT registration number.</returns>
     public override string ToString()
     {
         return ToString(null, null);
@@ -351,7 +443,6 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             return FalseOutDefault(out result);
         }
 
-        // Check both checksum algorithms
         int mod97Checksum = CalculateChecksum(mainNumber, useMod97Algorithm: true);
         ulong algorithmFlag;
 
@@ -368,12 +459,10 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             }
             else
             {
-                // Invalid checksum
                 return FalseOutDefault(out result);
             }
         }
 
-        // Standard 9-digit number
         if (payload.Length == 9)
         {
             ulong value = ((ulong)VATNumberType.Standard << TypeShift)
@@ -383,7 +472,6 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             return true;
         }
 
-        // Branch 12-digit number
         if (payload.Length == 12)
         {
             if (!TryParseDigits(payload.Slice(9, 3), out uint branchCode))
@@ -405,9 +493,6 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int CalculateChecksum(uint sevenDigitNumber, bool useMod97Algorithm)
     {
-        // Standard HMRC modulus-97 algorithm
-        // Weights: 8, 7, 6, 5, 4, 3, 2 for the 7 digits
-
         int total = 0;
         uint temp = sevenDigitNumber;
 
@@ -424,7 +509,6 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             return (97 - remainder) % 97;
         }
 
-        // Alternative "97-55" algorithm
         var check = 42 - remainder;
         return check >= 0 ? check : check + 97;
     }
@@ -447,9 +531,53 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         return true;
     }
 
-    public override bool Equals(object? obj) => obj is VATRegistrationNumber number && Equals(number);
-    public override int GetHashCode() => HashCode.Combine(_lo, _hi);
+    /// <summary>
+    /// Indicates whether this instance and a specified object are equal.
+    /// </summary>
+    /// <param name="obj">The object to compare with the current instance.</param>
+    /// <returns>
+    /// <see langword="true"/> if <paramref name="obj"/> is a <see cref="VATRegistrationNumber"/>
+    /// and equals the current instance; otherwise, <see langword="false"/>.
+    /// </returns>
+    public override bool Equals(object? obj)
+    {
+        return obj is VATRegistrationNumber number && Equals(number);
+    }
 
-    public static bool operator ==(VATRegistrationNumber left, VATRegistrationNumber right) => left.Equals(right);
-    public static bool operator !=(VATRegistrationNumber left, VATRegistrationNumber right) => !left.Equals(right);
+    /// <summary>
+    /// Returns the hash code for this <see cref="VATRegistrationNumber"/>.
+    /// </summary>
+    /// <returns>A 32-bit signed integer hash code.</returns>
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(_lo, _hi);
+    }
+
+    /// <summary>
+    /// Determines whether two specified <see cref="VATRegistrationNumber"/> objects have the same value.
+    /// </summary>
+    /// <param name="left">The first <see cref="VATRegistrationNumber"/> to compare.</param>
+    /// <param name="right">The second <see cref="VATRegistrationNumber"/> to compare.</param>
+    /// <returns>
+    /// <see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are equal;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
+    public static bool operator ==(VATRegistrationNumber left, VATRegistrationNumber right)
+    {
+        return left.Equals(right);
+    }
+
+    /// <summary>
+    /// Determines whether two specified <see cref="VATRegistrationNumber"/> objects have different values.
+    /// </summary>
+    /// <param name="left">The first <see cref="VATRegistrationNumber"/> to compare.</param>
+    /// <param name="right">The second <see cref="VATRegistrationNumber"/> to compare.</param>
+    /// <returns>
+    /// <see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are not equal;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
+    public static bool operator !=(VATRegistrationNumber left, VATRegistrationNumber right)
+    {
+        return !left.Equals(right);
+    }
 }
