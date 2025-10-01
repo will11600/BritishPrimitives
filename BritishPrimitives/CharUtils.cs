@@ -6,7 +6,7 @@ internal static class CharUtils
 {
     public const int BitsPerByte = 8;
     public const int LetterBits = 5;
-    public const int NumeralBits = 4;
+    public const int DigitBits = 4;
     public const int AlphanumericBits = 6;
 
     public const string AlphanumericChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
