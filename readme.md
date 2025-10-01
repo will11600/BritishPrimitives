@@ -6,12 +6,13 @@
 
 The following table lists the types included in the library, along with their sizes in memory:
 
-| Type | Size (bytes)             |
-| ---- | -------------------- | - |
+
+| Type | Size (bytes) |
+| --- | --- |
 | `CompanyRegistrationNumber` | 6 |
-| `NationalInsuranceNumber`   | 5 |
-| `PostalCode`                | 8 |
-| `VATRegistrationNumber`     | 5 |
+| `NationalInsuranceNumber` | 5 |
+| `PostalCode` | 8 |
+| `VATRegistrationNumber` | 5 |
 
 ## Installation
 
