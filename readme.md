@@ -9,7 +9,7 @@ The following table lists the types included in the library, along with their si
 
 | Type | Size (bytes) |
 | --- | --- |
-| `CompanyRegistrationNumber` | 6 |
+| `CompanyRegistrationNumber` | 5 |
 | `NationalInsuranceNumber` | 5 |
 | `PostalCode` | 8 |
 | `VATRegistrationNumber` | 5 |

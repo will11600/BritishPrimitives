@@ -12,7 +12,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageVersion>1.0.0</PackageVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
 </Project>
