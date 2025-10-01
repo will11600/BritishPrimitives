@@ -27,13 +27,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <returns><see langword="true"/> if the current object is equal to the <paramref name="other"/> parameter; otherwise, <see langword="false"/>.</returns>
     public readonly bool Equals(CompanyRegistrationNumber other)
     {
-        ReadOnlySpan<byte> otherSpan = new(other._value, SizeInBytes);
-
-        fixed (byte* thisPtr = _value)
-        {
-            ReadOnlySpan<byte> thisSpan = new(thisPtr, SizeInBytes);
-            return thisSpan.SequenceEqual(otherSpan);
-        }
+        return this == other;
     }
 
     /// <summary>
@@ -52,17 +46,10 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <returns>A 32-bit signed integer that is the hash code for this instance.</returns>
     public override readonly int GetHashCode()
     {
-        HashCode hashCode = new();
-
-        fixed (byte* thisPtr = _value)
+        fixed (byte* ptr = _value)
         {
-            for (int i = 0; i < SizeInBytes; i++)
-            {
-                hashCode.Add(thisPtr[i]);
-            }
+            return FixedSizeBufferExtensions.BuildHashCode(ptr, SizeInBytes);
         }
-
-        return hashCode.ToHashCode();
     }
 
     /// <summary>
@@ -210,9 +197,10 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <param name="left">The first <see cref="CompanyRegistrationNumber"/> to compare.</param>
     /// <param name="right">The second <see cref="CompanyRegistrationNumber"/> to compare.</param>
     /// <returns><see langword="true"/> if the value of <paramref name="left"/> is the same as the value of <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(CompanyRegistrationNumber left, CompanyRegistrationNumber right)
     {
-        return left.Equals(right);
+        return FixedSizeBufferExtensions.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 
     /// <summary>
@@ -221,32 +209,23 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <param name="left">The first <see cref="CompanyRegistrationNumber"/> to compare.</param>
     /// <param name="right">The second <see cref="CompanyRegistrationNumber"/> to compare.</param>
     /// <returns><see langword="true"/> if the value of <paramref name="left"/> is different from the value of <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(CompanyRegistrationNumber left, CompanyRegistrationNumber right)
     {
-        return !left.Equals(right);
+        return !(left == right);
     }
 
     /// <inheritdoc/>
     public static explicit operator ulong(CompanyRegistrationNumber value)
     {
-        ulong result = default;
-        for (int i = 0; i < SizeInBytes; i++)
-        {
-            result |= (ulong)value._value[i] << (BitsPerByte * i);
-        }
-        return result;
+        return FixedSizeBufferExtensions.ConcatenateBytes(value._value, SizeInBytes);
     }
 
     /// <inheritdoc/>
     public static explicit operator CompanyRegistrationNumber(ulong value)
     {
         CompanyRegistrationNumber result = new();
-
-        for (int i = 0; i < SizeInBytes; i++)
-        {
-            result._value[i] = (byte)(value >> (BitsPerByte * i));
-        }
-
+        FixedSizeBufferExtensions.SpreadBytes(value, result._value, SizeInBytes);
         return result;
     }
 

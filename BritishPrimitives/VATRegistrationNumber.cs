@@ -10,9 +10,11 @@ namespace BritishPrimitives;
 /// government, and health authority formats.
 /// </summary>
 [StructLayout(LayoutKind.Explicit)]
-public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
+public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
 {
     private const string CountryCode = "GB";
+
+    private const int SizeInBytes = 5;
 
     private const string FormatSpecifiers = "GS";
     private static char GeneralFormatSpecifier => FormatSpecifiers[0];
@@ -41,16 +43,7 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     private const int ChecksumDigits = 2;
 
     [FieldOffset(0)]
-    private readonly uint _lo;
-
-    [FieldOffset(4)]
-    private readonly byte _hi;
-
-    private VATRegistrationNumber(uint lo, byte hi)
-    {
-        _lo = lo;
-        _hi = hi;
-    }
+    private fixed byte _value[SizeInBytes];
 
     /// <summary>
     /// Converts the string representation of a UK VAT registration number
@@ -109,38 +102,20 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// </returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out VATRegistrationNumber result)
     {
-        Span<char> sanitized = stackalloc char[s.Length];
-        sanitized = sanitized[..TrimAndMakeUpperInvariant(s, sanitized)];
-
-        if (sanitized.Length < MainNumberDigits)
+        Span<char> sanitized = stackalloc char[MaxLength];
+        if (!TryParseAlphanumericUpperInvariant(s, sanitized, out int charsWritten) || charsWritten < MainNumberDigits || !sanitized.StartsWith(CountryCode))
         {
             return FalseOutDefault(out result);
         }
 
-        if (!sanitized.StartsWith(CountryCode))
+        var payload = sanitized[CountryCode.Length..charsWritten];
+
+        return payload.Length switch
         {
-            return FalseOutDefault(out result);
-        }
-
-        var payload = sanitized[CountryCode.Length..];
-
-        if (payload.Length == 5)
-        {
-            if (TryParseGovHealth(payload, out result))
-            {
-                return true;
-            }
-        }
-
-        if (payload.Length == 9 || payload.Length == 12)
-        {
-            if (TryParseStandardOrBranch(payload, out result))
-            {
-                return true;
-            }
-        }
-
-        return FalseOutDefault(out result);
+            5 => TryParseGovHealth(payload, out result),
+            9 or 12 => TryParseStandardOrBranch(payload, out result),
+            _ => FalseOutDefault(out result)
+        };
     }
 
     /// <summary>
@@ -176,9 +151,9 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// <see langword="true"/> if the current object is equal to the <paramref name="other"/>
     /// parameter; otherwise, <see langword="false"/>.
     /// </returns>
-    public bool Equals(VATRegistrationNumber other)
+    public readonly bool Equals(VATRegistrationNumber other)
     {
-        return _lo == other._lo && _hi == other._hi;
+        return this == other;
     }
 
     /// <summary>
@@ -198,7 +173,7 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// The 'G' format (default) produces a compact number, e.g., "GB123456789".
     /// The 'S' format produces a space-delimited number, e.g., "GB 123 4567 89".
     /// </remarks>
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    public readonly bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
         char formatSpecifier = format.IsEmpty ? GeneralFormatSpecifier : char.ToUpperInvariant(format[0]);
         if (format.Length > 1 || !FormatSpecifiers.Contains(formatSpecifier))
@@ -366,7 +341,7 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// </param>
     /// <param name="formatProvider">An object that supplies culture-specific formatting information (ignored).</param>
     /// <returns>The string representation of the current VAT registration number in the specified format.</returns>
-    public string ToString(string? format, IFormatProvider? formatProvider)
+    public readonly string ToString(string? format, IFormatProvider? formatProvider)
     {
         Span<char> chars = stackalloc char[14];
         if (TryFormat(chars, out int charsWritten, format is null ? [] : format.AsSpan(), formatProvider))
@@ -382,7 +357,7 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// using the general ("G") format.
     /// </summary>
     /// <returns>The string representation of the current VAT registration number.</returns>
-    public override string ToString()
+    public override readonly string ToString()
     {
         return ToString(null, null);
     }
@@ -390,13 +365,15 @@ public readonly struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// <inheritdoc/>
     public static explicit operator ulong(VATRegistrationNumber value)
     {
-        return (ulong)value._hi << (sizeof(uint) * BitsPerByte) | value._lo;
+        return FixedSizeBufferExtensions.ConcatenateBytes(value._value, SizeInBytes);
     }
 
     /// <inheritdoc/>
     public static explicit operator VATRegistrationNumber(ulong value)
     {
-        return new VATRegistrationNumber((uint)value, (byte)(value >> (sizeof(uint) * BitsPerByte)));
+        VATRegistrationNumber n = new();
+        FixedSizeBufferExtensions.SpreadBytes(value, n._value, SizeInBytes);
+        return n;
     }
 
     private static bool TryParseGovHealth(ReadOnlySpan<char> payload, out VATRegistrationNumber result)
