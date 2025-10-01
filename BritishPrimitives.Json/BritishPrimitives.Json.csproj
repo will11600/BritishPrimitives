@@ -7,13 +7,20 @@
     <Authors>willbldn</Authors>
     <Copyright>© William Brocklesby 2025</Copyright>
     <PackageProjectUrl>https://github.com/will11600/BritishPrimitives</PackageProjectUrl>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/will11600/BritishPrimitives.git</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageVersion>1.0.0</PackageVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\readme.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BritishPrimitives\BritishPrimitives.csproj" />
