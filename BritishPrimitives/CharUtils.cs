@@ -44,6 +44,17 @@ internal static class CharUtils
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsLetter(char c) => c switch
+    {
+        >= UppercaseA and <= UppercaseZ => true,
+        >= LowercaseA and <= LowercaseZ => true,
+        _ => false
+    };
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsDigit(char c) => c is >= Zero and <= Nine;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool FalseOutDefault<T>(out T value) where T : struct
     {
         value = default;

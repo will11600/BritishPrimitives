@@ -11,6 +11,13 @@ namespace BritishPrimitives;
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
 public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationNumber>
 {
+    private enum PrefixType : byte
+    {
+        Invalid,
+        Digits,
+        Letters,
+    }
+
     private const int SizeInBytes = 5;
     private const int PrefixLength = 2;
 
@@ -158,16 +165,21 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
         var prefix = destination[..PrefixLength];
         var body = destination[PrefixLength..];
 
+        charsWritten = default;
+        int position = default;
+
         fixed (byte* ptr = _value)
         {
             BitReader reader = new(ptr, SizeInBytes);
 
-            if (!TryDecodePrefix(in reader, prefix, out int position))
+            bool prefixRead = reader.TryReadBit(ref position) switch
             {
-                return FalseOutDefault(out charsWritten);
-            }
+                Bit.True => reader.TryReadLetters(ref position, prefix, ref charsWritten),
+                Bit.False => reader.TryReadDigits(ref position, prefix, ref charsWritten),
+                _ => false
+            };
 
-            return reader.TryReadDigits(ref position, body, out charsWritten) && (charsWritten += PrefixLength) == MaxLength;
+            return prefixRead && reader.TryReadDigits(ref position, body, ref charsWritten);
         }
     }
 
@@ -235,42 +247,42 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
         return result;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryEncodePrefix(ref readonly BitWriter writer, ReadOnlySpan<char> sanitized, out int position)
+    private static PrefixType ParsePrefixType(ReadOnlySpan<char> prefix)
     {
-        position = 0;
+        Func<char, bool> predicate = IsDigit;
 
-        bool isLetterPrefix = char.IsAsciiLetter(sanitized[0]);
-        if (!writer.TryWriteBit(ref position, isLetterPrefix))
+        for (byte i = 0; i < 2; i++)
         {
-            return false;
+            int count;
+            for (count = 0; count < prefix.Length; count++)
+            {
+                ref readonly char c = ref prefix[count];
+                if (!predicate(c))
+                {
+                    break;
+                }
+            }
+
+            if (count == prefix.Length)
+            {
+                return (PrefixType)count;
+            }
+
+            predicate = IsLetter;
         }
 
-        if (isLetterPrefix)
-        {
-            return writer.TryWriteLetters(ref position, sanitized);
-        }
-
-        return writer.TryWriteDigits(ref position, sanitized);
+        return PrefixType.Invalid;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryDecodePrefix(ref readonly BitReader reader, Span<char> chars, out int position)
+    private static bool TryEncodePrefix(ref readonly BitWriter writer, ReadOnlySpan<char> prefix, out int position)
     {
         position = 0;
 
-        if (!reader.TryReadBit(ref position, out bool isLetterPrefix))
+        return ParsePrefixType(prefix) switch
         {
-            return false;
-        }
-
-        int charsWritten;
-
-        if (isLetterPrefix)
-        {
-            return reader.TryReadLetters(ref position, chars, out charsWritten) && charsWritten == PrefixLength;
-        }
-
-        return reader.TryReadDigits(ref position, chars, out charsWritten) && charsWritten == PrefixLength;
+            PrefixType.Letters => writer.TryWriteBit(ref position, true) && writer.TryWriteLetters(ref position, prefix),
+            PrefixType.Digits => writer.TryWriteBit(ref position, false) && writer.TryWriteDigits(ref position, prefix),
+            _ => false
+        };
     }
 }

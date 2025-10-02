@@ -5,6 +5,8 @@ namespace BritishPrimitives;
 
 internal unsafe readonly ref struct BitReader
 {
+    public delegate bool Decoder(ref int position, Span<char> chars, ref int charsWritten);
+
     private readonly byte* _ptr;
     private readonly int _byteLength;
     private readonly int _bitLength;
@@ -58,14 +60,15 @@ internal unsafe readonly ref struct BitReader
 
     public bool TryReadAlphanumeric(ref int position, out char result) => TryReadChar(ref position, AlphanumericBits, AlphanumericChars, out result);
 
-    public bool TryReadAlphanumeric(ref int position, Span<char> chars, out int charsWritten)
+    public bool TryReadAlphanumeric(ref int position, Span<char> chars, ref int charsWritten)
     {
         ReadOnlySpan<char> characters = AlphanumericChars.AsSpan();
-        for (charsWritten = 0; charsWritten < chars.Length; charsWritten++)
+        for (int i = 0; i < chars.Length; i++)
         {
             if (TryReadChar(ref position, AlphanumericBits, characters, out char result))
             {
-                chars[charsWritten] = result;
+                chars[i] = result;
+                charsWritten++;
                 continue;
             }
 
@@ -77,14 +80,15 @@ internal unsafe readonly ref struct BitReader
 
     public bool TryReadDigit(ref int position, out char result) => TryReadChar(ref position, DigitBits, NumericalChars, out result);
 
-    public bool TryReadDigits(ref int position, Span<char> chars, out int charsWritten)
+    public bool TryReadDigits(ref int position, Span<char> chars, ref int charsWritten)
     {
         ReadOnlySpan<char> characters = NumericalChars;
-        for (charsWritten = 0; charsWritten < chars.Length; charsWritten++)
+        for (int i = 0; i < chars.Length; i++)
         {
             if (TryReadChar(ref position, DigitBits, characters, out char result))
             {
-                chars[charsWritten] = result;
+                chars[i] = result;
+                charsWritten++;
                 continue;
             }
 
@@ -96,14 +100,15 @@ internal unsafe readonly ref struct BitReader
 
     public bool TryReadLetter(ref int position, out char value) => TryReadChar(ref position, LetterBits, AlphabeticalChars, out value);
 
-    public bool TryReadLetters(ref int position, Span<char> chars, out int charsWritten)
+    public bool TryReadLetters(ref int position, Span<char> chars, ref int charsWritten)
     {
         ReadOnlySpan<char> characters = AlphabeticalChars;
-        for (charsWritten = 0; charsWritten < chars.Length; charsWritten++)
+        for (int i = 0; i < chars.Length; i++)
         {
             if (TryReadChar(ref position, LetterBits, characters, out char result))
             {
-                chars[charsWritten] = result;
+                chars[i] = result;
+                charsWritten++;
                 continue;
             }
 
@@ -122,5 +127,11 @@ internal unsafe readonly ref struct BitReader
         }
 
         return FalseOutDefault(out result);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Bit TryReadBit(ref int position)
+    {
+        return TryReadBits(ref position, 1, out byte bit) ? (Bit)bit : Bit.Error;
     }
 }
