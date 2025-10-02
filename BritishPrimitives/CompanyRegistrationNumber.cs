@@ -80,8 +80,8 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out CompanyRegistrationNumber result)
     {
-        Span<char> sanitized = stackalloc char[MaxLength];
-        if (!TryParseAlphanumericUpperInvariant(s, sanitized, out int charsWritten) || charsWritten != sanitized.Length)
+        Span<char> sanitized = stackalloc char[s.Length];
+        if (!TryParseAlphanumericUpperInvariant(s, sanitized, MaxLength, out int charsWritten))
         {
             return FalseOutDefault(out result);
         }

@@ -108,8 +108,8 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out NationalInsuranceNumber result)
     {
-        Span<char> sanitized = stackalloc char[NiStringLength];
-        if (!TryParseAlphanumericUpperInvariant(s, sanitized, out int charsWritten) || charsWritten != NiStringLength)
+        Span<char> sanitized = stackalloc char[s.Length];
+        if (!TryParseAlphanumericUpperInvariant(s, sanitized, NiStringLength, out int charsWritten))
         {
             return FalseOutDefault(out result);
         }

@@ -78,28 +78,44 @@ internal static class CharUtils
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryParseAlphanumericUpperInvariant(ReadOnlySpan<char> input, Span<char> output, out int charsWritten)
+    public static bool TryParseAlphanumericUpperInvariant(ReadOnlySpan<char> input, Span<char> output, int minLength, int maxLength, out int charsWritten)
     {
-        for (charsWritten = 0; charsWritten < input.Length && charsWritten < output.Length; charsWritten++)
+        charsWritten = AlphanumericUpperInvariant(input, output);
+        return charsWritten > minLength && charsWritten < maxLength;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryParseAlphanumericUpperInvariant(ReadOnlySpan<char> input, Span<char> output, int length, out int charsWritten)
+    {
+        charsWritten = AlphanumericUpperInvariant(input, output);
+        return charsWritten == length;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int AlphanumericUpperInvariant(ReadOnlySpan<char> input, Span<char> output)
+    {
+        int charsWritten = default;
+
+        for (int i = 0; i < input.Length && i < output.Length; i++)
         {
-            ref readonly char c = ref input[charsWritten];
+            ref readonly char c = ref input[i];
 
             switch (c)
             {
                 case >= UppercaseA and <= UppercaseZ:
                 case >= Zero and <= Nine:
-                    output[charsWritten] = c;
+                    output[charsWritten++] = c;
                     break;
                 case >= LowercaseA and <= LowercaseZ:
-                    output[charsWritten] = char.ToUpperInvariant(c);
+                    output[charsWritten++] = char.ToUpperInvariant(c);
                     break;
                 case Whitespace:
                     break;
                 default:
-                    return false;
+                    return charsWritten;
             }
         }
 
-        return true;
+        return charsWritten;
     }
 }

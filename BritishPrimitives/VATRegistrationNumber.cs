@@ -90,8 +90,8 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// </returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out VATRegistrationNumber result)
     {
-        Span<char> sanitized = stackalloc char[MaxLength];
-        if (!TryParseAlphanumericUpperInvariant(s, sanitized, out int charsWritten) || charsWritten < 7 || !sanitized.StartsWith(CountryCode))
+        Span<char> sanitized = stackalloc char[s.Length];
+        if (!TryParseAlphanumericUpperInvariant(s, sanitized, MinLength, MaxLength, out int charsWritten) || !sanitized.StartsWith(CountryCode))
         {
             return FalseOutDefault(out result);
         }
