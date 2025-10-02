@@ -1,6 +1,9 @@
-﻿namespace BritishPrimitives.Tests;
+﻿using System.Diagnostics.CodeAnalysis;
 
-public class PostalCodeTests
+namespace BritishPrimitives.Tests;
+
+[ExcludeFromCodeCoverage]
+public sealed class PostalCodeTests
 {
     [Theory]
     [InlineData("M1 1AA")]
