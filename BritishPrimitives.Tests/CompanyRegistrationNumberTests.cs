@@ -95,7 +95,7 @@ public sealed class CompanyRegistrationNumberTests
         var success = CompanyRegistrationNumber.TryParse(span, null, out _);
 
         // Assert
-        Assert.True(success);
+        Assert.False(success);
     }
 
     [Fact]
