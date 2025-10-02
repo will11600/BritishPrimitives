@@ -23,24 +23,12 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// <inheritdoc/>
     public static int MaxLength { get; } = 12;
 
-    private const int TypeShift = 38;
-    private const ulong TypeMask = 0x3;
+    private const int TypeSize = 2;
+    private const int FlagSize = 1;
+    private const int MainNumberSize = 24;
+    private const int BranchCodeSize = 10;
+    private const int GovHealthNumberSize = 9;
 
-    private const int FlagShift = 37;
-    private const ulong FlagMask = 0x1;
-
-    private const int MainNumberShift = 13;
-    private const ulong MainNumberMask = 0xFFFFFF;
-    private const int MainNumberDigits = 7;
-
-    private const int BranchCodeShift = 3;
-    private const ulong BranchCodeMask = 0x3FF;
-    private const int BranchCodeDigits = 3;
-
-    private const int GovHealthNumberMask = 0x1FF;
-    private const int HealthGovDigits = 3;
-
-    private const int ChecksumDigits = 2;
 
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
@@ -103,7 +91,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out VATRegistrationNumber result)
     {
         Span<char> sanitized = stackalloc char[MaxLength];
-        if (!TryParseAlphanumericUpperInvariant(s, sanitized, out int charsWritten) || charsWritten < MainNumberDigits || !sanitized.StartsWith(CountryCode))
+        if (!TryParseAlphanumericUpperInvariant(s, sanitized, out int charsWritten) || charsWritten < 7 || !sanitized.StartsWith(CountryCode))
         {
             return FalseOutDefault(out result);
         }
@@ -181,49 +169,66 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             return FalseOutDefault(out charsWritten);
         }
 
-        ulong value = (ulong)this;
-        var type = (VATNumberType)((value >> TypeShift) & TypeMask);
-        bool space = formatSpecifier == SpaceDeliminatedFormatSpecifier;
-
-        return type switch
+        fixed (byte* ptr = _value)
         {
-            VATNumberType.Standard => TryFormatStandard(destination, value, out charsWritten, space, provider),
-            VATNumberType.Branch => TryFormatBranch(destination, value, out charsWritten, space, provider),
-            VATNumberType.Government => TryFormatGovernment(destination, value, out charsWritten, provider),
-            VATNumberType.Health => TryFormatHealth(destination, value, out charsWritten, provider),
-            _ => FalseOutDefault(out charsWritten)
-        };
+            var reader = new BitReader(ptr, SizeInBytes);
+            var position = 0;
+            if (!reader.TryReadBits(ref position, TypeSize, out byte typeAsByte))
+            {
+                return FalseOutDefault(out charsWritten);
+            }
+
+            var type = (VATNumberType)typeAsByte;
+            bool space = formatSpecifier == SpaceDeliminatedFormatSpecifier;
+
+            return type switch
+            {
+                VATNumberType.Standard => TryFormatStandard(destination, in reader, ref position, out charsWritten, space, provider),
+                VATNumberType.Branch => TryFormatBranch(destination, in reader, ref position, out charsWritten, space, provider),
+                VATNumberType.Government => TryFormatGovernment(destination, in reader, ref position, out charsWritten, provider),
+                VATNumberType.Health => TryFormatHealth(destination, in reader, ref position, out charsWritten, provider),
+                _ => FalseOutDefault(out charsWritten)
+            };
+        }
     }
 
-    private static bool TryFormatHealth(Span<char> destination, ulong value, out int charsWritten, IFormatProvider? provider)
+    private static bool TryFormatHealth(Span<char> destination, in BitReader reader, ref int position, out int charsWritten, IFormatProvider? provider)
     {
-        ulong offset = value & GovHealthNumberMask;
+        if (!reader.TryReadBits(ref position, GovHealthNumberSize, out byte offset))
+        {
+            return FalseOutDefault(out charsWritten);
+        }
 
         CountryCode.CopyTo(destination);
         charsWritten = CountryCode.Length;
 
         AppendChars(destination, "HA", ref charsWritten);
 
-        return TryAppendDigitFormat(offset + 500, destination, ref charsWritten, HealthGovDigits, provider);
+        return TryAppendDigitFormat(offset + 500, destination, ref charsWritten, 3, provider);
     }
 
-    private static bool TryFormatGovernment(Span<char> destination, ulong value, out int charsWritten, IFormatProvider? provider)
+    private static bool TryFormatGovernment(Span<char> destination, in BitReader reader, ref int position, out int charsWritten, IFormatProvider? provider)
     {
-        ulong number = value & GovHealthNumberMask;
+        if (!reader.TryReadBits(ref position, GovHealthNumberSize, out byte number))
+        {
+            return FalseOutDefault(out charsWritten);
+        }
 
         CountryCode.CopyTo(destination);
         charsWritten = CountryCode.Length;
 
         AppendChars(destination, "GD", ref charsWritten);
 
-        return TryAppendDigitFormat(number, destination, ref charsWritten, HealthGovDigits, provider);
+        return TryAppendDigitFormat(number, destination, ref charsWritten, 3, provider);
     }
 
-    private static bool TryFormatBranch(Span<char> destination, ulong value, out int charsWritten, bool space, IFormatProvider? provider)
+    private static bool TryFormatBranch(Span<char> destination, in BitReader reader, ref int position, out int charsWritten, bool space, IFormatProvider? provider)
     {
-        ulong mainNumber = (value >> MainNumberShift) & MainNumberMask;
-        ulong branchCode = (value >> BranchCodeShift) & BranchCodeMask;
-        bool useMod97 = ((value >> FlagShift) & FlagMask) == 0;
+        if (!reader.TryReadBits(ref position, MainNumberSize, out byte mainNumber) || !reader.TryReadBits(ref position, BranchCodeSize, out byte branchCode) || !reader.TryReadBit(ref position, out bool useMod97))
+        {
+            return FalseOutDefault(out charsWritten);
+        }
+
         int checksum = CalculateChecksum((uint)mainNumber, useMod97);
 
         CountryCode.CopyTo(destination);
@@ -238,7 +243,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
 
             AppendWhitespace(destination, ref charsWritten);
 
-            if (!TryAppendDigitFormat(checksum, destination, ref charsWritten, ChecksumDigits, provider))
+            if (!TryAppendDigitFormat(checksum, destination, ref charsWritten, 2, provider))
             {
                 return false;
             }
@@ -247,24 +252,27 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         }
         else
         {
-            if (!TryAppendDigitFormat(mainNumber, destination, ref charsWritten, MainNumberDigits, provider))
+            if (!TryAppendDigitFormat(mainNumber, destination, ref charsWritten, 7, provider))
             {
                 return false;
             }
 
-            if (!TryAppendDigitFormat(checksum, destination, ref charsWritten, ChecksumDigits, provider))
+            if (!TryAppendDigitFormat(checksum, destination, ref charsWritten, 2, provider))
             {
                 return false;
             }
         }
-        
-        return TryAppendDigitFormat(branchCode, destination, ref charsWritten, BranchCodeDigits, provider);
+
+        return TryAppendDigitFormat(branchCode, destination, ref charsWritten, 3, provider);
     }
 
-    private static bool TryFormatStandard(Span<char> destination, ulong value, out int charsWritten, bool space, IFormatProvider? provider)
+    private static bool TryFormatStandard(Span<char> destination, in BitReader reader, ref int position, out int charsWritten, bool space, IFormatProvider? provider)
     {
-        ulong mainNumber = (value >> MainNumberShift) & MainNumberMask;
-        bool useMod97 = ((value >> FlagShift) & FlagMask) == 0;
+        if (!reader.TryReadBits(ref position, MainNumberSize, out byte mainNumber) || !reader.TryReadBit(ref position, out bool useMod97))
+        {
+            return FalseOutDefault(out charsWritten);
+        }
+
         int checksum = CalculateChecksum((uint)mainNumber, useMod97);
 
         CountryCode.CopyTo(destination);
@@ -277,19 +285,19 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
                 return FalseOutDefault(out charsWritten);
             }
         }
-        else if (!TryAppendDigitFormat(mainNumber, destination, ref charsWritten, MainNumberDigits, provider))
+        else if (!TryAppendDigitFormat(mainNumber, destination, ref charsWritten, 7, provider))
         {
             return FalseOutDefault(out charsWritten);
         }
 
-        return TryAppendDigitFormat(checksum, destination, ref charsWritten, ChecksumDigits, provider);
+        return TryAppendDigitFormat(checksum, destination, ref charsWritten, 2, provider);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryAppendMainNumberSpaced(Span<char> destination, ref int charsWritten, IFormatProvider? provider, ulong mainNumber)
     {
-        Span<char> mainNumberChars = stackalloc char[MainNumberDigits];
-        if (!TryFormatDigits(mainNumber, mainNumberChars, out int mainNumberCharsWritten, MainNumberDigits, provider))
+        Span<char> mainNumberChars = stackalloc char[7];
+        if (!TryFormatDigits(mainNumber, mainNumberChars, out int mainNumberCharsWritten, 7, provider))
         {
             return false;
         }
@@ -305,7 +313,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryFormatDigits(ISpanFormattable formattable, Span<char> destination, out int charsWritten, int digitCount, IFormatProvider? provider)
     {
-        ReadOnlySpan<char> format = ['D', Convert.ToChar(digitCount)];
+        ReadOnlySpan<char> format = ['D', (char)('0' + digitCount)];
         return formattable.TryFormat(destination, out charsWritten, format, provider);
     }
 
@@ -386,22 +394,24 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             return FalseOutDefault(out result);
         }
 
-        if (code.SequenceEqual("GD"))
+        result = new VATRegistrationNumber();
+        fixed (byte* ptr = result._value)
         {
-            if (number <= 499)
+            var writer = new BitWriter(ptr, SizeInBytes);
+            var position = 0;
+            if (code.SequenceEqual("GD"))
             {
-                ulong value = ((ulong)VATNumberType.Government << TypeShift) | number;
-                result = (VATRegistrationNumber)value;
-                return true;
+                if (number <= 499)
+                {
+                    return writer.TryWriteBits(ref position, (byte)VATNumberType.Government, TypeSize) && writer.TryWriteBits(ref position, (byte)number, GovHealthNumberSize);
+                }
             }
-        }
-        else if (code.SequenceEqual("HA"))
-        {
-            if (number >= 500 && number <= 999)
+            else if (code.SequenceEqual("HA"))
             {
-                ulong value = ((ulong)VATNumberType.Health << TypeShift) | (number - 500);
-                result = (VATRegistrationNumber)value;
-                return true;
+                if (number >= 500 && number <= 999)
+                {
+                    return writer.TryWriteBits(ref position, (byte)VATNumberType.Health, TypeSize) && writer.TryWriteBits(ref position, (byte)(number - 500), GovHealthNumberSize);
+                }
             }
         }
 
@@ -410,29 +420,24 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
 
     private static bool TryParseStandardOrBranch(ReadOnlySpan<char> payload, out VATRegistrationNumber result)
     {
-        if (!TryParseDigits(payload[..7], out uint mainNumber))
-        {
-            return FalseOutDefault(out result);
-        }
-
-        if (!TryParseDigits(payload[7..2], out uint providedChecksum))
+        if (!TryParseDigits(payload[..7], out uint mainNumber) || !TryParseDigits(payload[7..9], out uint providedChecksum))
         {
             return FalseOutDefault(out result);
         }
 
         int mod97Checksum = CalculateChecksum(mainNumber, useMod97Algorithm: true);
-        ulong algorithmFlag;
+        bool useMod97;
 
         if (providedChecksum == mod97Checksum)
         {
-            algorithmFlag = 0;
+            useMod97 = true;
         }
         else
         {
             int mod9755Checksum = CalculateChecksum(mainNumber, useMod97Algorithm: false);
             if (providedChecksum == mod9755Checksum)
             {
-                algorithmFlag = 1;
+                useMod97 = false;
             }
             else
             {
@@ -440,28 +445,31 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             }
         }
 
-        if (payload.Length == 9)
+        result = new VATRegistrationNumber();
+        fixed (byte* ptr = result._value)
         {
-            ulong value = ((ulong)VATNumberType.Standard << TypeShift)
-                        | (algorithmFlag << FlagShift)
-                        | (mainNumber << MainNumberShift);
-            result = (VATRegistrationNumber)value;
-            return true;
-        }
+            var writer = new BitWriter(ptr, SizeInBytes);
+            var position = 0;
 
-        if (payload.Length == 12)
-        {
-            if (!TryParseDigits(payload.Slice(9, 3), out uint branchCode))
+            if (payload.Length == 9)
             {
-                return FalseOutDefault(out result);
+                return writer.TryWriteBits(ref position, (byte)VATNumberType.Standard, TypeSize) &&
+                       writer.TryWriteBit(ref position, useMod97) &&
+                       writer.TryWriteBits(ref position, (byte)mainNumber, MainNumberSize);
             }
 
-            ulong value = ((ulong)VATNumberType.Branch << TypeShift)
-                        | (algorithmFlag << FlagShift)
-                        | ((ulong)mainNumber << MainNumberShift)
-                        | (branchCode << BranchCodeShift);
-            result = (VATRegistrationNumber)value;
-            return true;
+            if (payload.Length == 12)
+            {
+                if (!TryParseDigits(payload.Slice(9, 3), out uint branchCode))
+                {
+                    return FalseOutDefault(out result);
+                }
+
+                return writer.TryWriteBits(ref position, (byte)VATNumberType.Branch, TypeSize) &&
+                       writer.TryWriteBit(ref position, useMod97) &&
+                       writer.TryWriteBits(ref position, (byte)mainNumber, MainNumberSize) &&
+                       writer.TryWriteBits(ref position, (byte)branchCode, BranchCodeSize);
+            }
         }
 
         return FalseOutDefault(out result);
@@ -473,7 +481,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         int total = 0;
         uint temp = sevenDigitNumber;
 
-        for (int weight = 2; weight <= 8; weight++)
+        for (int weight = 8; weight >= 2; weight--)
         {
             total += (int)(temp % 10) * weight;
             temp /= 10;
@@ -483,11 +491,11 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
 
         if (useMod97Algorithm)
         {
-            return (97 - remainder) % 97;
+            return (97 - remainder);
         }
 
-        var check = 42 - remainder;
-        return check >= 0 ? check : check + 97;
+        var check = remainder > 55 ? 97 - remainder + 55 : 42 - remainder;
+        return check > 0 ? check : check + 97;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -498,12 +506,12 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
 
         foreach (char c in s)
         {
-            if (c is < Zero or > Nine)
+            if (c is < '0' or > '9')
             {
                 value = 0;
                 return false;
             }
-            value = (value * 10) + (uint)(c - Zero);
+            value = (value * 10) + (uint)(c - '0');
         }
         return true;
     }
@@ -516,7 +524,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// <see langword="true"/> if <paramref name="obj"/> is a <see cref="VATRegistrationNumber"/>
     /// and equals the current instance; otherwise, <see langword="false"/>.
     /// </returns>
-    public override bool Equals(object? obj)
+    public override readonly bool Equals(object? obj)
     {
         return obj is VATRegistrationNumber number && Equals(number);
     }
@@ -527,7 +535,10 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// <returns>A 32-bit signed integer hash code.</returns>
     public override int GetHashCode()
     {
-        return HashCode.Combine(_lo, _hi);
+        fixed (byte* ptr = _value)
+        {
+            return FixedSizeBufferExtensions.BuildHashCode(ptr, SizeInBytes);
+        }
     }
 
     /// <summary>
@@ -539,9 +550,10 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// <see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are equal;
     /// otherwise, <see langword="false"/>.
     /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(VATRegistrationNumber left, VATRegistrationNumber right)
     {
-        return left.Equals(right);
+        return FixedSizeBufferExtensions.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 
     /// <summary>
@@ -553,8 +565,9 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// <see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are not equal;
     /// otherwise, <see langword="false"/>.
     /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(VATRegistrationNumber left, VATRegistrationNumber right)
     {
-        return !left.Equals(right);
+        return !(left == right);
     }
 }
