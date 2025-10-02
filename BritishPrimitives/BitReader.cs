@@ -22,12 +22,9 @@ internal unsafe readonly ref struct BitReader
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryReadBits(ref int position, int length, out byte result)
     {
-        int advancedPosition = position + length;
-
-        if (position < 0 || length < 1 || length > BitsPerByte || advancedPosition > _bitLength)
+        if (position < 0 || length < 1 || length > BitsPerByte || position > _bitLength)
         {
-            result = default;
-            return false;
+            return FalseOutDefault(out result);
         }
 
         int byteIndex = position / BitsPerByte;
@@ -42,7 +39,7 @@ internal unsafe readonly ref struct BitReader
         int mask = (1 << length) - 1;
         result = (byte)(bits & mask);
 
-        position = advancedPosition;
+        position += length;
 
         return true;
     }

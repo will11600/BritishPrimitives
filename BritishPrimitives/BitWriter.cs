@@ -22,9 +22,7 @@ internal unsafe readonly ref struct BitWriter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryWriteBits(ref int position, byte value, int length)
     {
-        int advancedPosition = position + length;
-
-        if (position < 1 || length < 1 || advancedPosition > _bitLength)
+        if (position < 0 || length < 1 || position > _bitLength)
         {
             return false;
         }
@@ -45,7 +43,7 @@ internal unsafe readonly ref struct BitWriter
             byteRef |= (byte)(preparedValue >> shiftAmount);
         }
 
-        position = advancedPosition;
+        position += length;
 
         return true;
     }
@@ -116,7 +114,7 @@ internal unsafe readonly ref struct BitWriter
         return true;
     }
 
-    public bool TryWriteBit(ref int position, bool value) => TryWriteBits(ref position, value ? byte.MinValue : byte.MaxValue, 1);
+    public bool TryWriteBit(ref int position, bool value) => TryWriteBits(ref position, value ? byte.MaxValue : byte.MinValue, 1);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte EncodeChar(char value, char start, int offset = 0) => (byte)(value - start + offset);
