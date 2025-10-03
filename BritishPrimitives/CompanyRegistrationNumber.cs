@@ -172,7 +172,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
         {
             BitReader reader = new(ptr, SizeInBytes);
 
-            bool prefixRead = reader.TryReadBit(ref position) switch
+            bool prefixRead = reader.ReadBit(ref position) switch
             {
                 Bit.True => reader.TryReadLetters(ref position, prefix, ref charsWritten),
                 Bit.False => reader.TryReadDigits(ref position, prefix, ref charsWritten),
