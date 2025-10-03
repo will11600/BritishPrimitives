@@ -1,4 +1,6 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Globalization;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using static BritishPrimitives.CharUtils;
 
 namespace BritishPrimitives;
@@ -22,11 +24,18 @@ internal unsafe readonly ref struct BitWriter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryWriteBits(ref int position, byte value, int length)
     {
-        if (position < 0 || length < 1 || position > _bitLength)
+        if (CanWrite(position, length))
         {
-            return false;
+            WriteBits(position += length, value, length);
+            return true;
         }
 
+        return length == 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void WriteBits(int position, byte value, int length)
+    {
         int byteIndex = position / BitsPerByte;
         int bitOffset = position % BitsPerByte;
 
@@ -42,10 +51,6 @@ internal unsafe readonly ref struct BitWriter
             byteRef &= (byte)(clearMask >> shiftAmount);
             byteRef |= (byte)(preparedValue >> shiftAmount);
         }
-
-        position += length;
-
-        return true;
     }
 
     public bool TryWriteAlphanumeric(ref int position, char value) => value switch
@@ -92,6 +97,53 @@ internal unsafe readonly ref struct BitWriter
         return true;
     }
 
+    public bool TryWriteNumber(ref int position, ReadOnlySpan<char> chars, int length)
+    {
+        return ulong.TryParse(chars, NumberStyles.None, CultureInfo.InvariantCulture, out ulong result) && TryWriteNumber(ref position, result, length);
+    }
+
+    public bool TryWriteNumber(ref int position, ulong number, int length)
+    {
+        const int UInt64SizeInBits = sizeof(ulong) * BitsPerByte;
+        return TryWriteNumber(ref position, shift => (byte)(number >> shift), length, UInt64SizeInBits);
+    }
+
+    public bool TryWriteNumber(ref int position, uint number, int length)
+    {
+        const int UInt32SizeInBits = sizeof(uint) * BitsPerByte;
+        return TryWriteNumber(ref position, shift => (byte)(number >> shift), length, UInt32SizeInBits);
+    }
+
+    public bool TryWriteNumber(ref int position, ushort number, int length)
+    {
+        const int UInt16SizeInBits = sizeof(ushort) * BitsPerByte;
+        return TryWriteNumber(ref position, shift => (byte)(number >> shift), length, UInt16SizeInBits);
+    }
+
+    private bool TryWriteNumber(ref int position, Func<int, byte> rightShift, int length, int maxLength)
+    {
+        if (length > maxLength || !CanWrite(position, length))
+        {
+            return false;
+        }
+
+        int remainingBits = length;
+        while (remainingBits > 0)
+        {
+            int chunkLength = Math.Min(remainingBits, BitsPerByte);
+
+            int shiftAmount = remainingBits - chunkLength;
+            byte chunkValue = rightShift(shiftAmount);
+
+            WriteBits(position, chunkValue, chunkLength);
+
+            position += chunkLength;
+            remainingBits -= chunkLength;
+        }
+
+        return true;
+    }
+
     public bool TryWriteLetter(ref int position, char value) => value switch
     {
         >= UppercaseA and <= UppercaseZ => TryWriteBits(ref position, EncodeChar(value, UppercaseA), LetterBits),
@@ -118,4 +170,10 @@ internal unsafe readonly ref struct BitWriter
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte EncodeChar(char value, char start, int offset = 0) => (byte)(value - start + offset);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool CanWrite(int position, int length)
+    {
+        return position >= 0 && length >= 1 && (position + length) <= _bitLength;
+    }
 }

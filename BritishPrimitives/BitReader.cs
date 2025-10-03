@@ -5,8 +5,6 @@ namespace BritishPrimitives;
 
 internal unsafe readonly ref struct BitReader
 {
-    public delegate bool Decoder(ref int position, Span<char> chars, ref int charsWritten);
-
     private readonly byte* _ptr;
     private readonly int _byteLength;
     private readonly int _bitLength;
@@ -22,13 +20,8 @@ internal unsafe readonly ref struct BitReader
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryReadBits(ref int position, int length, out byte result)
+    private byte ReadBits(int position, int length)
     {
-        if (position < 0 || length < 1 || length > BitsPerByte || position > _bitLength)
-        {
-            return FalseOutDefault(out result);
-        }
-
         int byteIndex = position / BitsPerByte;
         int bitOffset = position % BitsPerByte;
 
@@ -39,9 +32,46 @@ internal unsafe readonly ref struct BitReader
         }
         bits >>= bitOffset;
         int mask = (1 << length) - 1;
-        result = (byte)(bits & mask);
+        return (byte)(bits & mask);
+    }
 
-        position += length;
+    public bool TryReadBits(ref int position, int length, out byte result)
+    {
+        if (CanWrite(position, length))
+        {
+            result = ReadBits(position, length);
+            position += length;
+            return true;
+        }
+
+        return FalseOutDefault(out result);
+    }
+
+    public bool TryRead<T>(ref int position, int length, out T result) where T : unmanaged
+    {
+        result = default;
+
+        if (length > (sizeof(T) * BitsPerByte) || !CanWrite(position, length))
+        {
+            return false;
+        }
+
+        ulong value = 0;
+        int bitsRead = 0;
+
+        while (bitsRead < length)
+        {
+            int chunkLength = Math.Min(length - bitsRead, BitsPerByte);
+            byte chunk = ReadBits(position, chunkLength);
+
+            value <<= chunkLength;
+            value |= chunk;
+
+            position += chunkLength;
+            bitsRead += chunkLength;
+        }
+
+        Unsafe.As<T, ulong>(ref result) = value;
 
         return true;
     }
@@ -130,8 +160,14 @@ internal unsafe readonly ref struct BitReader
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Bit TryReadBit(ref int position)
+    public Bit ReadBit(ref int position)
     {
         return TryReadBits(ref position, 1, out byte bit) ? (Bit)bit : Bit.Error;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool CanWrite(int position, int length)
+    {
+        return position >= 0 && length >= 1 && (position + length) <= _bitLength;
     }
 }

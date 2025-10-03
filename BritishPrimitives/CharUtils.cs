@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace BritishPrimitives;
 
@@ -92,7 +93,7 @@ internal static class CharUtils
     public static bool TryParseAlphanumericUpperInvariant(ReadOnlySpan<char> input, Span<char> output, int minLength, int maxLength, out int charsWritten)
     {
         charsWritten = AlphanumericUpperInvariant(input, output);
-        return charsWritten > minLength && charsWritten < maxLength;
+        return charsWritten >= minLength && charsWritten <= maxLength;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -100,6 +101,18 @@ internal static class CharUtils
     {
         charsWritten = AlphanumericUpperInvariant(input, output);
         return charsWritten == length;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryFormatDigits<T>(T value, Span<char> destination, int length, ref int charsWritten) where T : ISpanFormattable
+    {
+        var destSlice = destination.Slice(charsWritten, length);
+        if (value.TryFormat(destSlice, out int valueCharsWritten, ['D', Convert.ToChar(length)], CultureInfo.InvariantCulture))
+        {
+            charsWritten += valueCharsWritten;
+            return true;
+        }
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
