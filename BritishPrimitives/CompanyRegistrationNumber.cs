@@ -18,8 +18,12 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
         Letters,
     }
 
-    private const int SizeInBytes = 5;
+    private const int SizeInBytes = 4;
+
     private const int PrefixLength = 2;
+
+    private const int NumericalMainNumberSize = 27;
+    private const int AlphanumericMainNumberSize = 20;
 
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
@@ -95,19 +99,35 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
 
         result = new CompanyRegistrationNumber();
 
-        var prefix = sanitized[..PrefixLength];
-        var body = sanitized[PrefixLength..charsWritten];
+        ReadOnlySpan<char> prefix = sanitized[..PrefixLength];
 
         fixed (byte* ptr = result._value)
         {
             BitWriter writer = new(ptr, SizeInBytes);
-            if (TryEncodePrefix(in writer, prefix, out int position) && writer.TryWriteDigits(ref position, body))
-            {
-                return true;
-            }
-        }
 
-        return FalseOutDefault(out result);
+            int bitCount;
+            int position = 0;
+            bool prefixWritten;
+            Range bodyRange;
+
+            switch (ParsePrefixType(prefix))
+            {
+                case PrefixType.Digits:
+                    prefixWritten = writer.TryWriteBit(ref position, false);
+                    bodyRange = ..charsWritten;
+                    bitCount = NumericalMainNumberSize;
+                    break;
+                case PrefixType.Letters:
+                    prefixWritten = writer.TryWriteBit(ref position, true) && writer.TryWriteLetters(ref position, prefix);
+                    bodyRange = PrefixLength..charsWritten;
+                    bitCount = AlphanumericMainNumberSize;
+                    break;
+                default:
+                    return false;
+            }
+
+            return prefixWritten && writer.TryWriteNumber(ref position, sanitized[bodyRange], bitCount);
+        }
     }
 
     /// <summary>
@@ -136,15 +156,10 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <param name="provider">An object that supplies culture-specific formatting information (currently ignored).</param>
     /// <param name="result">When this method returns, contains the <see cref="CompanyRegistrationNumber"/> value equivalent to the number contained in <paramref name="s"/>, if the conversion succeeded, or the default value if the conversion failed.</param>
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out CompanyRegistrationNumber result)
     {
-        if (s is null)
-        {
-            result = default;
-            return false;
-        }
-
-        return TryParse(s.AsSpan(), provider, out result);
+        return TryParse(s is null ? [] : s.AsSpan(), provider, out result);
     }
 
     /// <summary>
@@ -163,23 +178,35 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
         }
 
         var prefix = destination[..PrefixLength];
-        var body = destination[PrefixLength..];
-
-        charsWritten = default;
-        int position = default;
 
         fixed (byte* ptr = _value)
         {
             BitReader reader = new(ptr, SizeInBytes);
 
-            bool prefixRead = reader.ReadBit(ref position) switch
-            {
-                Bit.True => reader.TryReadLetters(ref position, prefix, ref charsWritten),
-                Bit.False => reader.TryReadDigits(ref position, prefix, ref charsWritten),
-                _ => false
-            };
+            charsWritten = 0;
+            int position = 0;
 
-            return prefixRead && reader.TryReadDigits(ref position, body, ref charsWritten);
+            int bitCount;
+            Range bodyRange;
+            bool prefixRead;
+
+            switch (reader.ReadBit(ref position))
+            {
+                case Bit.False:
+                    bitCount = NumericalMainNumberSize;
+                    prefixRead = true;
+                    bodyRange = ..MaxLength;
+                    break;
+                case Bit.True:
+                    bitCount = AlphanumericMainNumberSize;
+                    prefixRead = reader.TryReadLetters(ref position, destination[..PrefixLength], ref charsWritten);
+                    bodyRange = PrefixLength..MaxLength;
+                    break;
+                default:
+                    return false;
+            }
+
+            return prefixRead && reader.TryRead(ref position, bitCount, out uint mainNumber) && TryFormatDigits(mainNumber, destination[bodyRange], ref charsWritten);
         }
     }
 
@@ -189,6 +216,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <param name="format">A format string (currently ignored).</param>
     /// <param name="formatProvider">An object that supplies culture-specific formatting information (currently ignored).</param>
     /// <returns>The string representation of the current <see cref="CompanyRegistrationNumber"/> value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly string ToString(string? format, IFormatProvider? formatProvider = null)
     {
         Span<char> span = stackalloc char[MaxLength];
@@ -204,6 +232,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// Returns the string representation of the Company Registration Number.
     /// </summary>
     /// <returns>A string that represents the current Company Registration Number.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override readonly string ToString()
     {
         return ToString(null, null);
@@ -234,12 +263,14 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator ulong(CompanyRegistrationNumber value)
     {
         return FixedSizeBufferExtensions.ConcatenateBytes(value._value, SizeInBytes);
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator CompanyRegistrationNumber(ulong value)
     {
         CompanyRegistrationNumber result = new();
@@ -272,17 +303,5 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
         }
 
         return PrefixType.Invalid;
-    }
-
-    private static bool TryEncodePrefix(ref readonly BitWriter writer, ReadOnlySpan<char> prefix, out int position)
-    {
-        position = 0;
-
-        return ParsePrefixType(prefix) switch
-        {
-            PrefixType.Letters => writer.TryWriteBit(ref position, true) && writer.TryWriteLetters(ref position, prefix),
-            PrefixType.Digits => writer.TryWriteBit(ref position, false) && writer.TryWriteDigits(ref position, prefix),
-            _ => false
-        };
     }
 }
