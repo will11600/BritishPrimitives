@@ -194,7 +194,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
             int position = 0;
 
             int bitCount;
-            Range bodyRange;
+            int bodyLength;
             bool prefixRead;
 
             switch (reader.ReadBit(ref position))
@@ -202,18 +202,18 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
                 case Bit.False:
                     bitCount = NumericalMainNumberSize;
                     prefixRead = true;
-                    bodyRange = ..MaxLength;
+                    bodyLength = MaxLength;
                     break;
                 case Bit.True:
                     bitCount = AlphanumericMainNumberSize;
                     prefixRead = reader.TryReadLetters(ref position, destination[..PrefixLength], ref charsWritten);
-                    bodyRange = PrefixLength..MaxLength;
+                    bodyLength = MaxLength - PrefixLength;
                     break;
                 default:
                     return false;
             }
 
-            return prefixRead && reader.TryRead(ref position, bitCount, out uint mainNumber) && TryFormatDigits(mainNumber, destination[bodyRange], ref charsWritten);
+            return prefixRead && reader.TryRead(ref position, bitCount, out uint mainNumber) && TryFormatDigits(mainNumber, destination, bodyLength, ref charsWritten);
         }
     }
 
@@ -287,26 +287,14 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
 
     private static PrefixType ParsePrefixType(ReadOnlySpan<char> prefix)
     {
-        Func<char, bool> predicate = IsDigit;
-
-        for (byte i = 0; i < 2; i++)
+        if (IsDigit(prefix[0]) && IsDigit(prefix[1]))
         {
-            int count;
-            for (count = 0; count < prefix.Length; count++)
-            {
-                ref readonly char c = ref prefix[count];
-                if (!predicate(c))
-                {
-                    break;
-                }
-            }
+            return PrefixType.Digits;
+        }
 
-            if (count == prefix.Length)
-            {
-                return (PrefixType)count;
-            }
-
-            predicate = IsLetter;
+        if (IsLetter(prefix[0]) && IsLetter(prefix[1]))
+        {
+            return PrefixType.Letters;
         }
 
         return PrefixType.Invalid;

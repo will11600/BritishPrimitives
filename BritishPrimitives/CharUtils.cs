@@ -133,12 +133,6 @@ internal static class CharUtils
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryFormatDigits<T>(T value, Span<char> destination, ref int charsWritten) where T : ISpanFormattable
-    {
-        return TryFormatDigits(value, destination, destination.Length, ref charsWritten);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int AlphanumericUpperInvariant(ReadOnlySpan<char> input, Span<char> output)
     {
         int charsWritten = default;
