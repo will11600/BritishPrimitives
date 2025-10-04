@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace BritishPrimitives;
@@ -107,12 +108,28 @@ internal static class CharUtils
     public static bool TryFormatDigits<T>(T value, Span<char> destination, int length, ref int charsWritten) where T : ISpanFormattable
     {
         var destSlice = destination.Slice(charsWritten, length);
-        if (value.TryFormat(destSlice, out int valueCharsWritten, ['D', Convert.ToChar(length)], CultureInfo.InvariantCulture))
+
+        Span<char> format = stackalloc char[CharacterLength(length) + 1];
+        format[0] = 'D';
+
+        if (length.TryFormat(format[1..], out _) && value.TryFormat(destSlice, out int valueCharsWritten, format, CultureInfo.InvariantCulture))
         {
             charsWritten += valueCharsWritten;
             return true;
         }
         return false;
+    }
+
+    public static int CharacterLength(int value)
+    {
+        int length = 0;
+        if (value < 0)
+        {
+            value = Math.Abs(value);
+            length++;
+        }
+        double log10 = Math.Log10(value);
+        return length + (int)log10 + 1;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
