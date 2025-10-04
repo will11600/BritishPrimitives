@@ -1,4 +1,4 @@
-﻿namespace BritishPrimitives;
+﻿namespace BritishPrimitives.BitPacking;
 
 internal enum Bit : sbyte
 {

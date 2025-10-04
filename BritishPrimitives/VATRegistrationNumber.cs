@@ -1,4 +1,4 @@
-﻿using System;
+﻿using BritishPrimitives.BitPacking;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;

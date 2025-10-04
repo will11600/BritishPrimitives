@@ -1,7 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using static BritishPrimitives.CharUtils;
 
-namespace BritishPrimitives;
+namespace BritishPrimitives.BitPacking;
 
 internal unsafe readonly ref struct BitReader
 {
@@ -51,7 +51,7 @@ internal unsafe readonly ref struct BitReader
     {
         result = default;
 
-        if (length > (sizeof(T) * BitsPerByte) || !CanWrite(position, length))
+        if (length > sizeof(T) * BitsPerByte || !CanWrite(position, length))
         {
             return false;
         }
@@ -157,6 +157,6 @@ internal unsafe readonly ref struct BitReader
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CanWrite(int position, int length)
     {
-        return position >= 0 && length >= 1 && (position + length) <= _bitLength;
+        return position >= 0 && length >= 1 && position + length <= _bitLength;
     }
 }

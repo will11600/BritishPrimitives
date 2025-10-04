@@ -3,7 +3,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using static BritishPrimitives.CharUtils;
 
-namespace BritishPrimitives;
+namespace BritishPrimitives.BitPacking;
 
 internal unsafe readonly ref struct BitWriter
 {
@@ -175,6 +175,6 @@ internal unsafe readonly ref struct BitWriter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CanWrite(int position, int length)
     {
-        return position >= 0 && length >= 1 && (position + length) <= _bitLength;
+        return position >= 0 && length >= 1 && position + length <= _bitLength;
     }
 }
