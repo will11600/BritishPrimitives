@@ -148,17 +148,6 @@ internal unsafe readonly ref struct BitReader
         return true;
     }
 
-    public bool TryReadBit(ref int position, out bool result)
-    {
-        if (TryReadBits(ref position, 1, out byte bit))
-        {
-            result = bit > 0;
-            return true;
-        }
-
-        return FalseOutDefault(out result);
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Bit ReadBit(ref int position)
     {

@@ -26,7 +26,8 @@ internal unsafe readonly ref struct BitWriter
     {
         if (CanWrite(position, length))
         {
-            WriteBits(position += length, value, length);
+            WriteBits(position, value, length);
+            position += length;
             return true;
         }
 
