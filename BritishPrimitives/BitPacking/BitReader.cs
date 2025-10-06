@@ -10,16 +10,6 @@ internal unsafe readonly ref struct BitReader
 
     public required int BitLength { get; init; }
 
-    public BitReader(byte* ptr, int length)
-    {
-        Value = ptr;
-
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(length, nameof(length));
-        ByteLength = length;
-
-        BitLength = length * Helpers.BitsPerByte;
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte ReadByte(int position, int bitLength)
     {
@@ -34,5 +24,29 @@ internal unsafe readonly ref struct BitReader
         bits >>= bitOffset;
         int mask = (1 << bitLength) - 1;
         return (byte)(bits & mask);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static BitReader Create(byte* ptr, int byteLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(byteLength, nameof(byteLength));
+        return new BitReader()
+        {
+            Value = ptr,
+            ByteLength = byteLength,
+            BitLength = byteLength * Helpers.BitsPerByte
+        };
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static BitReader Create<T>(ref T value) where T : unmanaged
+    {
+        int byteLength = sizeof(T);
+        return new BitReader()
+        {
+            Value = (byte*)Unsafe.AsPointer(ref value),
+            ByteLength = byteLength,
+            BitLength = byteLength * Helpers.BitsPerByte
+        };
     }
 }

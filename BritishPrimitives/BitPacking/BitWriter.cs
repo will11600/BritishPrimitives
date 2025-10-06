@@ -10,16 +10,6 @@ internal unsafe readonly ref struct BitWriter
 
     public required long BitLength { get; init; }
 
-    public BitWriter(byte* ptr, int length)
-    {
-        Value = ptr;
-
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(length, nameof(length));
-        ByteLength = length;
-
-        BitLength = length * Helpers.BitsPerByte;
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteByte(int position, byte value, int bitLength)
     {
@@ -38,5 +28,29 @@ internal unsafe readonly ref struct BitWriter
             byteRef &= (byte)(clearMask >> shiftAmount);
             byteRef |= (byte)(preparedValue >> shiftAmount);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static BitWriter Create(byte* ptr, int byteLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(byteLength, nameof(byteLength));
+        return new BitWriter()
+        {
+            Value = ptr,
+            ByteLength = byteLength,
+            BitLength = byteLength * Helpers.BitsPerByte
+        };
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static BitWriter Create<T>(ref T value) where T : unmanaged
+    {
+        int byteLength = sizeof(T);
+        return new BitWriter()
+        {
+            Value = (byte*)Unsafe.AsPointer(ref value),
+            ByteLength = byteLength,
+            BitLength = byteLength * Helpers.BitsPerByte
+        };
     }
 }
