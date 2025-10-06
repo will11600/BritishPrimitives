@@ -1,5 +1,9 @@
-![British Primitives](/Wordmark.svg?raw=true)
 ![NuGet Version](https://img.shields.io/nuget/v/BritishPrimitives)
+![NuGet Downloads](https://img.shields.io/nuget/dt/BritishPrimitives)
+![GitHub License](https://img.shields.io/github/license/will11600/BritishPrimitives)
+
+![British Primitives](https://raw.githubusercontent.com/will11600/BritishPrimitives/refs/heads/master/Wordmark.svg)
+
 ## Introduction
 
 `BritishPrimitives` is a .NET library that provides a set of primitive types for representing common UK-specific data formats. These types are designed to be lightweight and efficient, with a focus on performance and ease of use. The library also includes support for serialization and [Entity Framework Core](#Entity-Framework), making it easy to use in a variety of applications.
@@ -7,12 +11,12 @@
 The following table lists the types included in the library, along with their sizes in memory:
 
 
-| Type | Size (bytes) |
-| --- | --- |
-| `CompanyRegistrationNumber` | 6 |
-| `NationalInsuranceNumber` | 5 |
-| `PostalCode` | 8 |
-| `VATRegistrationNumber` | 5 |
+| Type | Package Version | Size (bytes) |
+| --- | --- | --- |
+| `CompanyRegistrationNumber` | 1.0 | 6 |
+| `PostalCode` | 1.0 | 8 |
+| `NationalInsuranceNumber` | 2.0 | 5 |
+| `VATRegistrationNumber` | 2.0 | 5 |
 
 ## Installation
 
