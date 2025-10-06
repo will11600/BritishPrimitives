@@ -1,8 +1,8 @@
 ﻿using BritishPrimitives.BitPacking;
-﻿using System.Diagnostics.CodeAnalysis;
+using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static BritishPrimitives.CharUtils;
 
 namespace BritishPrimitives;
 
@@ -19,19 +19,9 @@ namespace BritishPrimitives;
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
 public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationNumber>
 {
-    private enum PrefixType : byte
-    {
-        Invalid,
-        Digits,
-        Letters,
-    }
-
     private const int SizeInBytes = 6;
 
     private const int PrefixLength = 2;
-
-    private const int NumericalMainNumberSize = 27;
-    private const int AlphanumericMainNumberSize = 20;
 
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
@@ -67,7 +57,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     {
         fixed (byte* ptr = _value)
         {
-            return FixedSizeBufferExtensions.BuildHashCode(ptr, SizeInBytes);
+            return Helpers.BuildHashCode(ptr, SizeInBytes);
         }
     }
 
@@ -99,43 +89,53 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out CompanyRegistrationNumber result)
     {
-        Span<char> sanitized = stackalloc char[s.Length];
-        if (!TryParseAlphanumericUpperInvariant(s, sanitized, MaxLength, out int charsWritten))
-        {
-            return FalseOutDefault(out result);
-        }
-
         result = new CompanyRegistrationNumber();
 
-        ReadOnlySpan<char> prefix = sanitized[..PrefixLength];
+        if (s.IsEmpty || s.Length < MaxLength)
+        {
+            return false;
+        }
 
         fixed (byte* ptr = result._value)
         {
-            BitWriter writer = new(ptr, SizeInBytes);
-
-            int bitCount;
+            BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
             int position = 0;
-            bool prefixWritten;
-            Range bodyRange;
 
-            switch (ParsePrefixType(prefix))
+            if (TryWriteNumeralTypePrefix(in writer, s, ref position, out int offset) || TryWriteLetterTypePrefix(in writer, s, ref position, out offset))
             {
-                case PrefixType.Digits:
-                    prefixWritten = writer.TryWriteBit(ref position, false);
-                    bodyRange = ..charsWritten;
-                    bitCount = NumericalMainNumberSize;
-                    break;
-                case PrefixType.Letters:
-                    prefixWritten = writer.TryWriteBit(ref position, true) && writer.TryWriteLetters(ref position, prefix);
-                    bodyRange = PrefixLength..charsWritten;
-                    bitCount = AlphanumericMainNumberSize;
-                    break;
-                default:
-                    return false;
+                return writer.TryPackNumbers(ref position, s[offset..MaxLength]);
             }
-
-            return prefixWritten && writer.TryWriteNumber(ref position, sanitized[bodyRange], bitCount);
         }
+
+        return false;
+    }
+
+    private static bool TryWriteLetterTypePrefix(ref readonly BitWriter writer, ReadOnlySpan<char> s, ref int position, out int offset)
+    {
+        if (TryWritePrefixType(in writer, s, ref position, Character.IsLetter, true, out Range prefixRange))
+        {
+            offset = Helpers.CalculateOffset(s, prefixRange);
+            return writer.PackLetters(ref position, s[prefixRange]) == PrefixLength;
+        }
+
+        return Helpers.FalseOutDefault(out offset);
+    }
+
+    private static bool TryWriteNumeralTypePrefix(ref readonly BitWriter writer, ReadOnlySpan<char> s, ref int position, out int offset)
+    {
+        if (TryWritePrefixType(in writer, s, ref position, Character.IsDigit, false, out Range prefixRange))
+        {
+            offset = Helpers.CalculateOffset(s, prefixRange);
+            return true;
+        }
+
+        return Helpers.FalseOutDefault(out offset);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool TryWritePrefixType(ref readonly BitWriter writer, ReadOnlySpan<char> s, ref int position, Func<char, bool> predicate, bool value, out Range prefixRange)
+    {
+        return Character.ContiguousSequenceWithoutWhitespace(s, predicate, PrefixLength, PrefixLength, out prefixRange) && writer.TryWriteBit(ref position, value);
     }
 
     /// <summary>
@@ -182,41 +182,33 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     {
         if (destination.Length < MaxLength)
         {
-            return FalseOutDefault(out charsWritten);
+            return Helpers.FalseOutDefault(out charsWritten);
         }
-
-        var prefix = destination[..PrefixLength];
 
         fixed (byte* ptr = _value)
         {
-            BitReader reader = new(ptr, SizeInBytes);
+            BitReader reader = BitReader.Create(ptr, SizeInBytes);
 
             charsWritten = 0;
             int position = 0;
 
-            int bitCount;
-            int bodyLength;
-            bool prefixRead;
-
-            switch (reader.ReadBit(ref position))
+            if (TryFormatPrefix(in reader, ref position, destination, ref charsWritten))
             {
-                case Bit.False:
-                    bitCount = NumericalMainNumberSize;
-                    prefixRead = true;
-                    bodyLength = MaxLength;
-                    break;
-                case Bit.True:
-                    bitCount = AlphanumericMainNumberSize;
-                    prefixRead = reader.TryReadLetters(ref position, destination[..PrefixLength], ref charsWritten);
-                    bodyLength = MaxLength - PrefixLength;
-                    break;
-                default:
-                    return false;
+                charsWritten += reader.UnpackNumbers(ref position, destination[charsWritten..MaxLength]);
+                return charsWritten == MaxLength;
             }
 
-            return prefixRead && reader.TryRead(ref position, bitCount, out uint mainNumber) && TryFormatDigits(mainNumber, destination, bodyLength, ref charsWritten);
+            return false;
         }
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool TryFormatPrefix(ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten) => reader.ReadBit(ref position) switch
+    {
+        Bit.False => true,
+        Bit.True => (charsWritten += reader.UnpackLetters(ref position, destination[..PrefixLength])) == PrefixLength,
+        _ => false
+    };
 
     /// <summary>
     /// Converts the value of the current <see cref="CompanyRegistrationNumber"/> object to its equivalent string representation.
@@ -255,7 +247,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(CompanyRegistrationNumber left, CompanyRegistrationNumber right)
     {
-        return FixedSizeBufferExtensions.SequenceEquals(left._value, right._value, SizeInBytes);
+        return Helpers.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 
     /// <summary>
@@ -274,7 +266,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator ulong(CompanyRegistrationNumber value)
     {
-        return FixedSizeBufferExtensions.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes(value._value, SizeInBytes);
     }
 
     /// <inheritdoc/>
@@ -282,22 +274,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     public static explicit operator CompanyRegistrationNumber(ulong value)
     {
         CompanyRegistrationNumber result = new();
-        FixedSizeBufferExtensions.SpreadBytes(value, result._value, SizeInBytes);
+        Helpers.SpreadBytes(value, result._value, SizeInBytes);
         return result;
-    }
-
-    private static PrefixType ParsePrefixType(ReadOnlySpan<char> prefix)
-    {
-        if (IsDigit(prefix[0]) && IsDigit(prefix[1]))
-        {
-            return PrefixType.Digits;
-        }
-
-        if (IsLetter(prefix[0]) && IsLetter(prefix[1]))
-        {
-            return PrefixType.Letters;
-        }
-
-        return PrefixType.Invalid;
     }
 }
