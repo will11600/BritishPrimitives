@@ -1,6 +1,6 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Mathematics;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static BritishPrimitives.CharUtils;
@@ -26,10 +26,6 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     private const string CountryCode = "GB";
 
     private const int SizeInBytes = 5;
-
-    private const string FormatSpecifiers = "GS";
-    private static char GeneralFormatSpecifier => FormatSpecifiers[0];
-    private static char SpaceDeliminatedFormatSpecifier => FormatSpecifiers[1];
 
     /// <inheritdoc/>
     public static int MaxLength { get; } = 14;
@@ -163,7 +159,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
             return false;
         }
 
-        Checksum checksum = new(mainNumber);
+        Mod9597Checksum checksum = new(mainNumber);
         for (int i = 0; i < 2; i++)
         {
             bool useMod97 = i == 1;
@@ -259,8 +255,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
     /// </remarks>
     public readonly bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
-        char formatSpecifier = format.IsEmpty ? GeneralFormatSpecifier : char.ToUpperInvariant(format[0]);
-        if (format.Length > 1 || !FormatSpecifiers.Contains(formatSpecifier))
+        if (!PrimitiveFormat.TryParse(format, out char formatSpecifier))
         {
             return FalseOutDefault(out charsWritten);
         }
@@ -323,7 +318,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         }
 
     InsertSpaces:
-        if (formatSpecifier != SpaceDeliminatedFormatSpecifier)
+        if (formatSpecifier != PrimitiveFormat.Spaced)
         {
             return true;
         }
@@ -351,7 +346,7 @@ public unsafe struct VATRegistrationNumber : IPrimitive<VATRegistrationNumber>
         {
             return false;
         }
-        Checksum checksum = new(mainNumber);
+        Mod9597Checksum checksum = new(mainNumber);
         return useMod97 switch
         {
             Bit.False => TryFormatDigits(checksum.Standard, destination, ChecksumLength, ref charsWritten),
