@@ -1,6 +1,6 @@
-﻿namespace BritishPrimitives;
+﻿namespace BritishPrimitives.Mathematics;
 
-internal readonly struct Checksum(uint sevenDigitNumber)
+internal readonly struct Mod9597Checksum(uint sevenDigitNumber)
 {
     private const int Modulus = 97;
     private const int HighestWeight = 8;
