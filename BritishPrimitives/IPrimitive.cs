@@ -27,4 +27,20 @@ public interface IPrimitive<TSelf> : IEquatable<TSelf>, ISpanParsable<TSelf>, IS
     /// <param name="value">The <see langword="ulong"/> value to convert.</param>
     /// <returns>The <typeparamref name="TSelf"/> representation of the value.</returns>
     public static abstract explicit operator ulong(TSelf value);
+
+    /// <summary>
+    /// Determines whether two specified <typeparamref name="TSelf"/> objects have the same value.
+    /// </summary>
+    /// <param name="left">The first <typeparamref name="TSelf"/> to compare.</param>
+    /// <param name="right">The second <typeparamref name="TSelf"/> to compare.</param>
+    /// <returns><see langword="true"/> if the value of <paramref name="left"/> is the same as the value of <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    public static abstract bool operator ==(TSelf left, TSelf right);
+
+    /// <summary>
+    /// Determines whether two specified <typeparamref name="TSelf"/> objects have different values.
+    /// </summary>
+    /// <param name="left">The first <typeparamref name="TSelf"/> to compare.</param>
+    /// <param name="right">The second <typeparamref name="TSelf"/> to compare.</param>
+    /// <returns><see langword="true"/> if the value of <paramref name="left"/> is different from the value of <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    public static abstract bool operator !=(TSelf left, TSelf right);
 }

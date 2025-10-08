@@ -212,23 +212,13 @@ public readonly struct PostalCode : IPrimitive<PostalCode>
         return TryParse(s.AsSpan(), provider, out result);
     }
 
-    /// <summary>
-    /// Compares two <see cref="PostalCode"/> values for equality.
-    /// </summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the two values are equal; otherwise, <see langword="false"/>.</returns>
+    /// <inheritdoc/>
     public static bool operator ==(PostalCode left, PostalCode right)
     {
         return left.Equals(right);
     }
 
-    /// <summary>
-    /// Compares two <see cref="PostalCode"/> values for inequality.
-    /// </summary>
-    /// <param name="left">The first value to compare.</param>
-    /// <param name="right">The second value to compare.</param>
-    /// <returns><see langword="true"/> if the two values are not equal; otherwise, <see langword="false"/>.</returns>
+    /// <inheritdoc/>
     public static bool operator !=(PostalCode left, PostalCode right)
     {
         return !left.Equals(right);

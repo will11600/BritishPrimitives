@@ -238,24 +238,14 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
         return ToString(null, null);
     }
 
-    /// <summary>
-    /// Determines whether two specified <see cref="CompanyRegistrationNumber"/> objects have the same value.
-    /// </summary>
-    /// <param name="left">The first <see cref="CompanyRegistrationNumber"/> to compare.</param>
-    /// <param name="right">The second <see cref="CompanyRegistrationNumber"/> to compare.</param>
-    /// <returns><see langword="true"/> if the value of <paramref name="left"/> is the same as the value of <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(CompanyRegistrationNumber left, CompanyRegistrationNumber right)
     {
         return Helpers.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 
-    /// <summary>
-    /// Determines whether two specified <see cref="CompanyRegistrationNumber"/> objects have different values.
-    /// </summary>
-    /// <param name="left">The first <see cref="CompanyRegistrationNumber"/> to compare.</param>
-    /// <param name="right">The second <see cref="CompanyRegistrationNumber"/> to compare.</param>
-    /// <returns><see langword="true"/> if the value of <paramref name="left"/> is different from the value of <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(CompanyRegistrationNumber left, CompanyRegistrationNumber right)
     {
