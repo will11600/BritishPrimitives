@@ -14,7 +14,7 @@ The following table lists the types included in the library, along with their si
 | Type | Package Version | Size (bytes) |
 | --- | --- | --- |
 | `CompanyRegistrationNumber` | 1.0 | 6 |
-| `PostalCode` | 1.0 | 8 |
+| `PostalCode` | 1.0 | 6 |
 | `NationalInsuranceNumber` | 2.0 | 5 |
 | `VATRegistrationNumber` | 2.0 | 5 |
 

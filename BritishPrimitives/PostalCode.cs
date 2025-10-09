@@ -1,374 +1,198 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using BritishPrimitives.BitPacking;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace BritishPrimitives;
 
-/// <summary>
-/// A compact representation of a UK postcode (postal code) using two 32-bit unsigned integers.
-/// </summary>
-[StructLayout(LayoutKind.Explicit, Size = 8)]
-public readonly struct PostalCode : IPrimitive<PostalCode>
+[StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
+public readonly record struct PostalCode : IPrimitive<PostalCode>
 {
+    private const int SizeInBytes = OutwardPostalCode.SizeInBytes + InwardPostalCode.SizeInBytes;
     private const string GirobankBootle = "GIR0AA";
 
+    private static readonly int _outwardCodeShift = InwardPostalCode.MaxLength * AlphanumericBitPacker.SizeInBits;
+
+    public static int MinLength { get; } = OutwardPostalCode.MaxLength + InwardPostalCode.MaxLength;
+
     /// <inheritdoc/>
-    public static int MaxLength { get; } = 1 + sizeof(uint) * 2;
+    public static int MaxLength { get; } = MinLength + 1; // +1 for the space
 
     [FieldOffset(0)]
-    private readonly uint _outward;
+    public readonly InwardPostalCode inwardCode;
 
-    [FieldOffset(4)]
-    private readonly uint _inward;
+    [FieldOffset(InwardPostalCode.SizeInBytes)]
+    public readonly OutwardPostalCode outwardCode;
 
-    private PostalCode(uint outward, uint inward)
+    public PostalCode(InwardPostalCode inwardCode, OutwardPostalCode outwardCode)
     {
-        _outward = outward;
-        _inward = inward;
+        this.outwardCode = outwardCode;
+        this.inwardCode = inwardCode;
     }
 
-    /// <summary>
-    /// Returns the outward code (e.g., "M1A", "B33")
-    /// </summary>
-    public string OutwardCode => Unpack(_outward);
-
-    /// <summary>
-    /// Returns the inward code (e.g., "1AA")
-    /// </summary>
-    public string InwardCode => Unpack(_inward);
-
-    /// <summary>
-        /// Converts the postcode to its standard string representation, with the outward and inward codes separated by a space.
-        /// </summary>
-        /// <returns>A formatted string representation of the postcode (e.g., "SW1A 0AA").</returns>
-    public override string ToString()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PostalCode Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        return ToString(null, null);
-    }
-
-    /// <inheritdoc/>
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider = null)
-    {
-        Span<char> outwardCode = stackalloc char[sizeof(uint)];
-        outwardCode = outwardCode[..Unpack(_outward, outwardCode)];
-
-        Span<char> inwardCode = stackalloc char[sizeof(uint)];
-        inwardCode = inwardCode[..Unpack(_inward, inwardCode)];
-
-        int maxLength = outwardCode.Length + inwardCode.Length;
-        bool includeSpace = !format.ContainsAny('s', 'S');
-
-        if (includeSpace)
+        if (TryParse(s, provider, out PostalCode result))
         {
-            maxLength++;
+            return result;
         }
 
-        if (destination.Length < maxLength)
+        throw new FormatException(Helpers.FormatExceptionMessage);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static PostalCode Parse(string s, IFormatProvider? provider)
+    {
+        if (TryParse(s.AsSpan(), provider, out PostalCode result))
         {
-            charsWritten = 0;
-            return false;
+            return result;
         }
 
-        outwardCode.CopyTo(destination);
-        charsWritten = outwardCode.Length;
+        throw new FormatException(Helpers.FormatExceptionMessage);
+    }
 
-        if (includeSpace)
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out PostalCode result)
+    {
+        Span<Range> ranges = stackalloc Range[3];
+        return s.Split(ranges, Character.Whitespace, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) switch
         {
-            destination[charsWritten++] = ' ';
+            2 => TryParseInnerAndOutwardCodes(s[ranges[0]], s[ranges[1]], provider, out result),
+            1 => TryExtractInwardAndOutwardCodes(s, ranges[0], out var inward, out var outward) && TryParseInnerAndOutwardCodes(inward, outward, provider, out result),
+            _ => Helpers.FalseOutDefault(out result)
+        };
+    }
+
+    private static bool TryExtractInwardAndOutwardCodes(ReadOnlySpan<char> s, Range range, out ReadOnlySpan<char> inwardCode, out ReadOnlySpan<char> outwardCode)
+    {
+        var payload = s[range];
+
+        if (payload.Length >= InwardPostalCode.MaxLength)
+        {
+            inwardCode = payload[..InwardPostalCode.MaxLength];
+            outwardCode = payload[InwardPostalCode.MaxLength..];
+
+            return true;
         }
 
-        inwardCode.CopyTo(destination[charsWritten..]);
-        charsWritten += inwardCode.Length;
+        inwardCode = default;
+        outwardCode = default;
 
-        return true;
+        return false;
     }
 
-    /// <inheritdoc/>
-    public string ToString(string? format = null, IFormatProvider? formatProvider = null)
+    private static bool TryParseInnerAndOutwardCodes(ReadOnlySpan<char> inwardCodeChars, ReadOnlySpan<char> outwardCodeChars, IFormatProvider? provider, out PostalCode result)
     {
-        Span<char> buffer = stackalloc char[sizeof(uint) * 2 + 1];
-
-        if (TryFormat(buffer, out int charsWritten, format, formatProvider))
+        if (TryParseGirobankBootle(inwardCodeChars, outwardCodeChars, out result))
         {
-            return new string(buffer[..charsWritten]);
+            return true;
         }
 
-        throw new FormatException("The format is invalid.");
+        bool parsedInwardCode = InwardPostalCode.TryParse(inwardCodeChars, provider, out InwardPostalCode inwardCode);
+        bool parsedOutwardCode = OutwardPostalCode.TryParse(outwardCodeChars, provider, out OutwardPostalCode outwardCode);
+        result = new PostalCode(inwardCode, outwardCode);
+        return parsedInwardCode && parsedOutwardCode;
     }
 
-    /// <summary>
-    /// Indicates whether the current object is equal to another <see cref="PostalCode"/>.
-    /// </summary>
-    /// <param name="other">A <see cref="PostalCode"/> to compare with this object.</param>
-    /// <returns><see langword="true"/> if the current object is equal to the <paramref name="other"/> parameter; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(PostalCode other)
+    private static bool TryParseGirobankBootle(ReadOnlySpan<char> inwardCodeChars, ReadOnlySpan<char> outwardCodeChars, out PostalCode result)
     {
-        return _outward == other._outward && _inward == other._inward;
-    }
+        bool inwardMatch = CaseInsensitiveEquals(inwardCodeChars, GirobankBootle, 0, out var girInward);
+        bool outwardMatch = CaseInsensitiveEquals(outwardCodeChars, GirobankBootle, inwardCodeChars.Length, out var girOutward);
 
-    /// <inheritdoc/>
-    public override bool Equals(object? obj)
-    {
-        return obj is PostalCode other && Equals(other);
-    }
-
-    /// <inheritdoc/>
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(_outward, _inward);
-    }
-
-    /// <summary>
-    /// Converts the character span representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
-    /// </summary>
-    /// <param name="s">A span of characters containing the postcode to convert.</param>
-    /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <returns>A <see cref="PostalCode"/> that is equivalent to the postcode contained in <paramref name="s"/>.</returns>
-    /// <exception cref="FormatException"><paramref name="s"/> is not in a valid UK postcode format.</exception>
-    public static PostalCode Parse(ReadOnlySpan<char> s, IFormatProvider? provider = null)
-    {
-        if (!TryParse(s, provider, out var result))
+        if (inwardMatch && outwardMatch)
         {
-            throw new FormatException("Invalid UK postcode format.");
+            InwardPostalCode inwardCode = new(girInward);
+            OutwardPostalCode outwardCode = new(girOutward);
+            result = new PostalCode(inwardCode, outwardCode);
+            return true;
         }
 
-        return result;
+        return Helpers.FalseOutDefault(out result);
     }
 
-    /// <summary>
-    /// Converts the string representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
-    /// </summary>
-    /// <param name="s">A string containing the postcode to convert.</param>
-    /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <returns>A <see cref="PostalCode"/> that is equivalent to the postcode contained in <paramref name="s"/>.</returns>
-    /// <exception cref="FormatException"><paramref name="s"/> is null or not in a valid UK postcode format.</exception>
-    public static PostalCode Parse(string s, IFormatProvider? provider = null)
+    private static bool CaseInsensitiveEquals(ReadOnlySpan<char> left, string right, int offset, out ReadOnlySpan<char> result)
     {
-        return Parse(s.AsSpan(), provider);
-    }
-
-    /// <summary>
-    /// Tries to convert the character span representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
-    /// </summary>
-    /// <param name="s">A span of characters containing the postcode to convert.</param>
-    /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <param name="result">When this method returns, contains the <see cref="PostalCode"/> equivalent of <paramref name="s"/> if the conversion succeeded, or a default value if the conversion failed.</param>
-    /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
-    /// <remarks>
-    /// This method does not throw an exception on failure. It validates against all standard UK postcode patterns and is case-insensitive.
-    /// </remarks>
-    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PostalCode result)
-    {
+        if (offset >= 0 && right.Length >= (left.Length + offset))
+        {
+            result = right.AsSpan(offset, left.Length);
+            return left.Equals(result, StringComparison.OrdinalIgnoreCase);
+        }
+        
         result = default;
-
-        if (s.IsEmpty)
-        {
-            return false;
-        }
-
-        Span<char> clean = stackalloc char[s.Length];
-        clean = clean[..CharUtils.TrimAndMakeUpperInvariant(s, clean)];
-
-        if (clean.Length is < 5 or > 7)
-        {
-            return false;
-        }
-
-        Span<char> inwardCode = clean[^3..];
-        Span<char> outwardCode = clean[..^3];
-
-        if (!clean.SequenceEqual(GirobankBootle))
-        {
-            if (!IsValidInwardCode(inwardCode))
-            {
-                return false;
-            }
-
-            if (!IsValidOutwardCode(outwardCode))
-            {
-                return false;
-            }
-        }       
-
-        var outward = Pack(outwardCode, 4);
-        var inward = Pack(inwardCode, 4);
-
-        result = new PostalCode(outward, inward);
-        return true;
+        return false;
     }
 
-    /// <summary>
-    /// Tries to convert the string representation of a UK postcode to its <see cref="PostalCode"/> equivalent.
-    /// </summary>
-    /// <param name="s">A string containing the postcode to convert.</param>
-    /// <param name="provider">An object that supplies culture-specific formatting information. This parameter is currently ignored.</param>
-    /// <param name="result">When this method returns, contains the <see cref="PostalCode"/> equivalent of <paramref name="s"/> if the conversion succeeded, or a default value if the conversion failed.</param>
-    /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
-    /// <remarks>
-    /// This method does not throw an exception on failure. It validates against all standard UK postcode patterns and is case-insensitive.
-    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PostalCode result)
     {
         return TryParse(s.AsSpan(), provider, out result);
     }
 
-    /// <inheritdoc/>
-    public static bool operator ==(PostalCode left, PostalCode right)
-    {
-        return left.Equals(right);
-    }
-
-    /// <inheritdoc/>
-    public static bool operator !=(PostalCode left, PostalCode right)
-    {
-        return !left.Equals(right);
-    }
-
-    /// <inheritdoc/>
-    public static explicit operator ulong(PostalCode code) => (ulong)code._outward << 32 | code._inward;
-
-    /// <inheritdoc/>
-    public static explicit operator PostalCode(ulong value) => new((uint)(value >> 32), (uint)(value & 0xFFFFFFFF));
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsValidInwardCode(ReadOnlySpan<char> inward)
+    public string ToString(string? format, IFormatProvider? formatProvider)
     {
-        if (inward.Length != 3 || !char.IsDigit(inward[0]))
+        Span<char> buffer = stackalloc char[MaxLength];
+        if (TryFormat(buffer, out int charsWritten, format.AsSpan(), formatProvider))
         {
-            return false;
+            return buffer[..charsWritten].ToString();
         }
 
-        for (int i = 1; i < 3; i++)
+        throw new FormatException(Helpers.FormatExceptionMessage);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override string ToString()
+    {
+        return ToString(null, null);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(inwardCode, outwardCode);
+    }
+
+    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    {
+        if (!PrimitiveFormat.TryParse(format, out char formatSpecifier))
         {
-            ref readonly char c = ref inward[i];
-            if (c is < 'A' or > 'Z' || c is 'C' or 'I' or 'K' or 'M' or 'O' or 'V')
-            {
-                return false;
-            }
+            return Helpers.FalseOutDefault(out charsWritten);
         }
 
-        return true;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsValidOutwardCode(ReadOnlySpan<char> outward)
-    {
-        if (outward.Length is < 2 or > 4)
+        int requiredLength;
+        if (formatSpecifier == PrimitiveFormat.Spaced)
         {
-            return false;
+            requiredLength = MaxLength;
+            charsWritten = 1; // for the space
+        }
+        else
+        {
+            requiredLength = MinLength;
+            charsWritten = 0;
         }
 
-        ref readonly char first = ref outward[0];
-        if (first is < 'A' or > 'Z' || first is 'I' or 'J' or 'Q' or 'V' or 'X' or 'Z')
+        if (destination.Length < requiredLength)
         {
-            return false;
+            return Helpers.FalseOutDefault(out charsWritten);
         }
 
-        return outward.Length switch
-        {
-            2 => IsValidPattern_A9(outward),
-            3 => IsValidPattern_A99_AA9_ANA(outward),
-            4 => IsValidPattern_AANN_AANA(outward),
-            _ => false
-        };
+        bool inwardCodeFormatted = inwardCode.TryFormat(destination[InwardPostalCode.MaxLength..], out int inwardCharsWritten, format, provider);
+        bool outwardCodeFormatted = outwardCode.TryFormat(destination[^OutwardPostalCode.MaxLength..], out int outwardCharsWritten, format, provider);
+
+        charsWritten += inwardCharsWritten + outwardCharsWritten;
+        return inwardCodeFormatted && outwardCodeFormatted && charsWritten == requiredLength;
     }
 
-    private static bool IsValidPattern_A9(ReadOnlySpan<char> outward)
+    public static explicit operator PostalCode(ulong value)
     {
-        return char.IsLetter(outward[0]) && char.IsDigit(outward[1]);
-    }
-
-    private static bool IsValidPattern_A99_AA9_ANA(ReadOnlySpan<char> outward)
-    {
-        ref readonly char c0 = ref outward[1];
-        ref readonly char c1 = ref outward[2];
-        return IsValidPattern_A99(in c0, in c1) || IsValidPattern_A99(in c0, in c1) || IsValidPattern_ANA(in c0, in c1);
+        InwardPostalCode inward = (InwardPostalCode)(value & ((1UL << _outwardCodeShift) - 1));
+        OutwardPostalCode outward = (OutwardPostalCode)(value >> _outwardCodeShift);
+        return new PostalCode(inward, outward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsValidPattern_A99(ref readonly char c0, ref readonly char c1)
+    public static explicit operator ulong(PostalCode value)
     {
-        return char.IsDigit(c0) && char.IsDigit(c1);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsValidPattern_AA9(ref readonly char c0, ref readonly char c1)
-    {
-        return char.IsLetter(c0)
-               && c0 is not 'C' or 'I' or 'K' or 'M' or 'O' or 'V' or 'Q' or 'U' or 'Z'
-               && char.IsDigit(c1);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsValidPattern_ANA(ref readonly char c0, ref readonly char c1)
-    {
-        return char.IsDigit(c0) && char.IsLetter(c1);
-    }
-
-    private static bool IsValidPattern_AANN_AANA(ReadOnlySpan<char> outward)
-    {
-        if (!char.IsLetter(outward[0]) || !char.IsLetter(outward[1]))
-        {
-            return false;
-        }
-
-        ref readonly char c2 = ref outward[2];
-        ref readonly char c3 = ref outward[3];
-
-        return IsValidPattern_AANN(in c2, in c3) || IsValidPattern_AANA(in c2, in c3);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsValidPattern_AANN(ref readonly char c2, ref readonly char c3)
-    {
-        return char.IsDigit(c2) && char.IsDigit(c3);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsValidPattern_AANA(ref readonly char c2, ref readonly char c3)
-    {
-        return char.IsDigit(c2) && char.IsLetter(c3);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static uint Pack(ReadOnlySpan<char> str, int maxLength)
-    {
-        uint packed = 0;
-
-        int length = Math.Min(str.Length, maxLength);
-        for (int i = 0; i < length; i++)
-        {
-            packed |= (uint)(str[i] & 0xFF) << i * 8;
-        }
-
-        return packed;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string Unpack(uint packed)
-    {
-        Span<char> chars = stackalloc char[sizeof(uint)];
-        int count = Unpack(packed, chars);
-        return new string(chars[..count]);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int Unpack(uint packed, Span<char> chars)
-    {
-        int count = 0;
-
-        for (int i = 0; i < sizeof(uint); i++)
-        {
-            var c = (char)(packed >> i * 8 & 0xFF);
-
-            if (c == 0)
-            {
-                break;
-            }
-
-            chars[count++] = c;
-        }
-
-        return count;
+        return (ulong)value.inwardCode | ((ulong)value.outwardCode << _outwardCodeShift);
     }
 }

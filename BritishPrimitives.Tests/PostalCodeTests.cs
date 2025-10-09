@@ -24,8 +24,8 @@ public sealed class PostalCodeTests
 
         // Assert
         Assert.True(result);
-        Assert.False(string.IsNullOrEmpty(postcode.OutwardCode));
-        Assert.False(string.IsNullOrEmpty(postcode.InwardCode));
+        Assert.Equal(postcode.outwardCode, default);
+        Assert.Equal(postcode.inwardCode, default);
     }
 
     [Theory]
