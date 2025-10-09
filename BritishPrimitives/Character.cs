@@ -13,6 +13,12 @@ internal static class Character
     public const char Whitespace = ' ';
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsAlphanumeric(char c)
+    {
+        return IsUppercaseLetter(c) || IsLowercaseLetter(c) || IsDigit(c);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsLetter(char c)
     {
         return IsUppercaseLetter(c) || IsLowercaseLetter(c);
@@ -46,6 +52,35 @@ internal static class Character
     public static int Normalize(char value, char offset)
     {
         return value - offset;
+    }
+
+    public static bool TryNormalize(char start, char end, char value, out int result)
+    {
+        result = Normalize(value, start);
+        return result >= 0 && result <= (end - start);
+    }
+
+    public static bool TryNormalizeDigit(char value, out int result)
+    {
+        return TryNormalize(Zero, Nine, value, out result);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryNormalizeUppercase(char value, out int result)
+    {
+        return TryNormalize(UppercaseA, UppercaseZ, value, out result);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryNormalizeLowercase(char value, out int result)
+    {
+        return TryNormalize(LowercaseA, LowercaseZ, value, out result);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryNormalizeLetter(char value, out int result)
+    {
+        return TryNormalizeUppercase(value, out result) || TryNormalizeLowercase(value, out result);
     }
 
     public static bool ContiguousSequenceWithoutWhitespace(ReadOnlySpan<char> chars, Func<char, bool> predicate, int minLength, int maxLength, out Range range)
@@ -103,5 +138,15 @@ internal static class Character
         }
 
         return charsWritten;
+    }
+
+    public static int SkipWhitespace(ReadOnlySpan<char> input)
+    {
+        int offset = 0;
+        while (offset < input.Length && char.IsWhiteSpace(input[offset]))
+        {
+            offset++;
+        }
+        return offset;
     }
 }
