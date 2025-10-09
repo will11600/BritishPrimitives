@@ -10,6 +10,13 @@ namespace BritishPrimitives;
 /// Represents the inward part of a United Kingdom postal code, which is the three-character section (e.g., '3AA')
 /// that designates the post office delivery area.
 /// </summary>
+/// Internal Bit Layout (20 bits):
+/// -------------------------------------------
+/// | Bits 1-6    | Bits 7-13   | Bits 14-20  |
+/// |-------------|-------------|-------------|
+/// | Character 1 | Character 2 | Character 3 |
+/// | (6 bit)     | (6 bit)     | (6 bit)     |
+/// -------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
 public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
 {

@@ -10,6 +10,13 @@ namespace BritishPrimitives;
 /// Represents the outward part of a United Kingdom postal code, which is the one- to four-character section (e.g., 'SW1A', 'L1')
 /// that designates the post town or post area.
 /// </summary>
+/// Internal Bit Layout (27 bits):
+/// ---------------------------------------------------------
+/// | Bits 1-6    | Bits 7-13   | Bits 14-20  | Bits 21-27  |
+/// |-------------|-------------|-------------|-------------|
+/// | Character 1 | Character 2 | Character 3 | Character 4 |
+/// | (6 bit)     | (6 bit)     | (6 bit)     | (6 bit)     |
+/// ---------------------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
 public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
 {
