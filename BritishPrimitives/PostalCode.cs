@@ -14,7 +14,7 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
     private const int SizeInBytes = OutwardPostalCode.SizeInBytes + InwardPostalCode.SizeInBytes;
     private const string GirobankBootle = "GIR0AA";
 
-    private static readonly int _outwardCodeShift = InwardPostalCode.MaxLength * AlphanumericBitPacker.SizeInBits;
+    private static readonly int _inwardCodeShift = OutwardPostalCode.MaxLength * AlphanumericBitPacker.SizeInBits;
 
     /// <summary>
     /// The minimum length in characters of the <see langword="string"/> representation of <see cref="PostalCode"/>.
@@ -25,23 +25,24 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
     public static int MaxLength { get; } = MinLength + 1; // +1 for the space
 
     /// <summary>
-    /// Gets the inward code component of the postal code.
-    /// </summary>
-    [FieldOffset(0)]
-    public readonly InwardPostalCode inwardCode;
-
-    /// <summary>
     /// Gets the outward code component of the postal code.
     /// </summary>
-    [FieldOffset(InwardPostalCode.SizeInBytes)]
+    [FieldOffset(0)]
     public readonly OutwardPostalCode outwardCode;
+
+    /// <summary>
+    /// Gets the inward code component of the postal code.
+    /// </summary>
+    [FieldOffset(OutwardPostalCode.SizeInBytes)]
+    public readonly InwardPostalCode inwardCode;
+
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PostalCode"/> struct with the specified inward and outward codes.
     /// </summary>
-    /// <param name="inwardCode">The inward code component.</param>
     /// <param name="outwardCode">The outward code component.</param>
-    public PostalCode(InwardPostalCode inwardCode, OutwardPostalCode outwardCode)
+    /// <param name="inwardCode">The inward code component.</param>
+    public PostalCode(OutwardPostalCode outwardCode, InwardPostalCode inwardCode)
     {
         this.outwardCode = outwardCode;
         this.inwardCode = inwardCode;
@@ -96,19 +97,19 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
         return s.Split(ranges, Character.Whitespace, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) switch
         {
             2 => TryParseInnerAndOutwardCodes(s[ranges[0]], s[ranges[1]], provider, out result),
-            1 => TryExtractInwardAndOutwardCodes(s, ranges[0], out var inward, out var outward) && TryParseInnerAndOutwardCodes(inward, outward, provider, out result),
+            1 => TryExtractInwardAndOutwardCodes(s, ranges[0], out var outward, out var inward) && TryParseInnerAndOutwardCodes(outward, inward, provider, out result),
             _ => Helpers.FalseOutDefault(out result)
         };
     }
 
-    private static bool TryExtractInwardAndOutwardCodes(ReadOnlySpan<char> s, Range range, out ReadOnlySpan<char> inwardCode, out ReadOnlySpan<char> outwardCode)
+    private static bool TryExtractInwardAndOutwardCodes(ReadOnlySpan<char> s, Range range, out ReadOnlySpan<char> outwardCode, out ReadOnlySpan<char> inwardCode)
     {
         var payload = s[range];
 
-        if (payload.Length >= InwardPostalCode.MaxLength)
+        if (payload.Length >= MinLength)
         {
-            inwardCode = payload[..InwardPostalCode.MaxLength];
-            outwardCode = payload[InwardPostalCode.MaxLength..];
+            outwardCode = payload[..OutwardPostalCode.MaxLength];
+            inwardCode = payload[^InwardPostalCode.MaxLength..];
 
             return true;
         }
@@ -119,29 +120,29 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
         return false;
     }
 
-    private static bool TryParseInnerAndOutwardCodes(ReadOnlySpan<char> inwardCodeChars, ReadOnlySpan<char> outwardCodeChars, IFormatProvider? provider, out PostalCode result)
+    private static bool TryParseInnerAndOutwardCodes(ReadOnlySpan<char> outwardCodeChars, ReadOnlySpan<char> inwardCodeChars, IFormatProvider? provider, out PostalCode result)
     {
         if (TryParseGirobankBootle(inwardCodeChars, outwardCodeChars, out result))
         {
             return true;
         }
 
-        bool parsedInwardCode = InwardPostalCode.TryParse(inwardCodeChars, provider, out InwardPostalCode inwardCode);
         bool parsedOutwardCode = OutwardPostalCode.TryParse(outwardCodeChars, provider, out OutwardPostalCode outwardCode);
-        result = new PostalCode(inwardCode, outwardCode);
-        return parsedInwardCode && parsedOutwardCode;
+        bool parsedInwardCode = InwardPostalCode.TryParse(inwardCodeChars, provider, out InwardPostalCode inwardCode);
+        result = new PostalCode(outwardCode, inwardCode);
+        return parsedOutwardCode && parsedInwardCode;
     }
 
-    private static bool TryParseGirobankBootle(ReadOnlySpan<char> inwardCodeChars, ReadOnlySpan<char> outwardCodeChars, out PostalCode result)
+    private static bool TryParseGirobankBootle(ReadOnlySpan<char> outwardCodeChars, ReadOnlySpan<char> inwardCodeChars, out PostalCode result)
     {
-        bool inwardMatch = CaseInsensitiveEquals(inwardCodeChars, GirobankBootle, 0, out var girInward);
-        bool outwardMatch = CaseInsensitiveEquals(outwardCodeChars, GirobankBootle, inwardCodeChars.Length, out var girOutward);
+        bool outwardMatch = CaseInsensitiveEquals(outwardCodeChars, GirobankBootle, 0, out var girOutward);
+        bool inwardMatch = CaseInsensitiveEquals(inwardCodeChars, GirobankBootle, outwardCodeChars.Length, out var girInward);
 
-        if (inwardMatch && outwardMatch)
+        if (outwardMatch && inwardMatch)
         {
-            InwardPostalCode inwardCode = new(girInward);
             OutwardPostalCode outwardCode = new(girOutward);
-            result = new PostalCode(inwardCode, outwardCode);
+            InwardPostalCode inwardCode = new(girInward);
+            result = new PostalCode(outwardCode, inwardCode);
             return true;
         }
 
@@ -244,8 +245,8 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
             return Helpers.FalseOutDefault(out charsWritten);
         }
 
-        bool inwardCodeFormatted = inwardCode.TryFormat(destination[InwardPostalCode.MaxLength..], out int inwardCharsWritten, format, provider);
-        bool outwardCodeFormatted = outwardCode.TryFormat(destination[^OutwardPostalCode.MaxLength..], out int outwardCharsWritten, format, provider);
+        bool outwardCodeFormatted = outwardCode.TryFormat(destination[OutwardPostalCode.MaxLength..], out int outwardCharsWritten, format, provider);
+        bool inwardCodeFormatted = inwardCode.TryFormat(destination[^InwardPostalCode.MaxLength..], out int inwardCharsWritten, format, provider);
 
         charsWritten += inwardCharsWritten + outwardCharsWritten;
         return inwardCodeFormatted && outwardCodeFormatted && charsWritten == requiredLength;
@@ -254,15 +255,15 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
     /// <inheritdoc/>
     public static explicit operator PostalCode(ulong value)
     {
-        InwardPostalCode inward = (InwardPostalCode)(value & ((1UL << _outwardCodeShift) - 1));
-        OutwardPostalCode outward = (OutwardPostalCode)(value >> _outwardCodeShift);
-        return new PostalCode(inward, outward);
+        OutwardPostalCode outward = (OutwardPostalCode)(value & ((1UL << _inwardCodeShift) - 1));
+        InwardPostalCode inward = (InwardPostalCode)(value >> _inwardCodeShift);
+        return new PostalCode(outward, inward);
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator ulong(PostalCode value)
     {
-        return (ulong)value.inwardCode | ((ulong)value.outwardCode << _outwardCodeShift);
+        return (ulong)value.outwardCode | ((ulong)value.inwardCode << _inwardCodeShift);
     }
 }
