@@ -5,6 +5,8 @@ namespace BritishPrimitives;
 
 internal static class Helpers
 {
+    public const string FormatExceptionMessage = "Input string was not in a correct format.";
+
     public const int BitsPerByte = 8;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

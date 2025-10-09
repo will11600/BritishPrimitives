@@ -77,7 +77,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
             return result;
         }
 
-        throw new FormatException("Input string was not in a correct format.");
+        throw new FormatException(Helpers.FormatExceptionMessage);
     }
 
     /// <summary>
@@ -154,7 +154,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
             return result;
         }
 
-        throw new FormatException("Input string was not in a correct format.");
+        throw new FormatException(Helpers.FormatExceptionMessage);
     }
 
     /// <summary>
