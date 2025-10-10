@@ -13,11 +13,11 @@ internal static class PrimitiveFormat
     public const int MaxSpecifierCount = 1;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryParse(ReadOnlySpan<char> format, out char specifier)
+    public static bool TryParse(ReadOnlySpan<char> format, out char specifier, char defaultSpecifer = General)
     {
         if (format.IsEmpty)
         {
-            specifier = General;
+            specifier = defaultSpecifer;
             return true;
         }
 

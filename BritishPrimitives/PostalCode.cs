@@ -169,7 +169,7 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
     /// <returns><see langword="true"/> if the formatting was successful; otherwise, <see langword="false"/>.</returns>
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
-        if (destination.Length < MinLength || !PrimitiveFormat.TryParse(format, out char formatSpecifier))
+        if (destination.Length < MinLength || !PrimitiveFormat.TryParse(format, out char formatSpecifier, PrimitiveFormat.Spaced))
         {
             return Helpers.FalseOutDefault(out charsWritten);
         }
