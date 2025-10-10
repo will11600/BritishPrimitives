@@ -50,6 +50,12 @@ internal static class Helpers
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int ClampAvailable<T>(ref readonly T packer, int position, int bitsPerItem, int count) where T : struct, IBitPacker, allows ref struct
+    {
+        return Math.Min((packer.BitLength - position) / bitsPerItem, count);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe bool SequenceEquals(byte* a, byte* b, int length)
     {
         ReadOnlySpan<byte> aSpan = new(a, length);

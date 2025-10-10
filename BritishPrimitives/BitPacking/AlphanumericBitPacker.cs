@@ -33,12 +33,8 @@ internal static class AlphanumericBitPacker
     {
         int count = 0;
 
-        if (!reader.CanRead(position, chars.Length * SizeInBits))
-        {
-            return count;
-        }
-
-        for (; count < chars.Length && TryUnpackCharacter(in reader, ref position, out char result); count++)
+        int length = Helpers.ClampAvailable(in reader, position, SizeInBits, chars.Length);
+        for (; count < length && TryUnpackCharacter(in reader, ref position, out char result); count++)
         {
             chars[count] = result;
         }
@@ -68,16 +64,11 @@ internal static class AlphanumericBitPacker
     {
         int count = 0;
 
-        if (!writer.CanWrite(position, chars.Length * SizeInBits))
-        {
-            return count;
-        }
-
-        for (int i = count; i < chars.Length && normalizer(chars[i], out int normalizedChar); i++)
+        int length = Helpers.ClampAvailable(in writer, position, SizeInBits, chars.Length);
+        for (; count < length && normalizer(chars[count], out int normalizedChar); count++)
         {
             writer.WriteByte(position, (byte)normalizedChar, SizeInBits);
             position += SizeInBits;
-            count++;
         }
 
         return count;
@@ -120,36 +111,32 @@ internal static class AlphanumericBitPacker
         return Helpers.FalseOutDefault(out result);
     }
 
-    private static bool TryNormalizeLetter(char value, out int result)
+    private static bool TryNormalizeLetter(char value, out int result) => value switch
     {
-        switch (value)
-        {
-            case >= Character.LowercaseA and <= Character.LowercaseZ:
-                result = AlphabetOffset + (value - Character.LowercaseA);
-                return true;
-            case >= Character.UppercaseA and <= Character.UppercaseZ:
-                result = AlphabetOffset + (value - Character.UppercaseA);
-                return true;
-            default:
-                return Helpers.FalseOutDefault(out result);
-        }
+        >= Character.LowercaseA and <= Character.LowercaseZ => Normalize(value, Character.LowercaseA, AlphabetOffset, out result),
+        >= Character.UppercaseA and <= Character.UppercaseZ => Normalize(value, Character.UppercaseA, AlphabetOffset, out result),
+        _ => Helpers.FalseOutDefault(out result),
+    };
+
+    private static bool TryNormalizeAlphanumeric(char value, out int result) => value switch
+    {
+        >= Character.LowercaseA and <= Character.LowercaseZ => Normalize(value, Character.LowercaseA, AlphabetOffset, out result),
+        >= Character.UppercaseA and <= Character.UppercaseZ => Normalize(value, Character.UppercaseA, AlphabetOffset, out result),
+        >= Character.Zero and <= Character.Nine => Normalize(value, Character.Zero, out result),
+        _ => Helpers.FalseOutDefault(out result)
+    };
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool Normalize(char value, char start, int offset, out int result)
+    {
+        result = offset + (value - start);
+        return true;
     }
 
-    private static bool TryNormalizeAlphanumeric(char value, out int result)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool Normalize(char value, char start, out int result)
     {
-        switch (value)
-        {
-            case >= Character.LowercaseA and <= Character.LowercaseZ:
-                result = AlphabetOffset + (value - Character.LowercaseA);
-                return true;
-            case >= Character.UppercaseA and <= Character.UppercaseZ:
-                result = AlphabetOffset + (value - Character.UppercaseA);
-                return true;
-            case >= Character.Zero and <= Character.Nine:
-                result = value - Character.Zero;
-                return true;
-            default:
-                return Helpers.FalseOutDefault(out result);
-        }
+        result = value - start;
+        return true;
     }
 }
