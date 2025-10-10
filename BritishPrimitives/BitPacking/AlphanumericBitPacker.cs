@@ -68,7 +68,7 @@ internal static class AlphanumericBitPacker
         int length = Helpers.ClampAvailableBits(in writer, position, SizeInBits, chars.Length);
         for (; count < length && normalizer(chars[count], out int normalizedChar); count++)
         {
-            writer.WriteByte(position, (byte)normalizedChar, SizeInBits);
+            writer.WriteByte(position, (byte)(normalizedChar + 1), SizeInBits);
             position += SizeInBits;
         }
 
@@ -79,9 +79,9 @@ internal static class AlphanumericBitPacker
     {
         int index = reader.ReadByte(position, SizeInBits);
 
-        if (index < Characters.Length)
+        if (index > 0 && index < Characters.Length)
         {
-            result = Characters[index];
+            result = Characters[index - 1];
             return true;
         }
 
@@ -92,7 +92,7 @@ internal static class AlphanumericBitPacker
     {
         if (Helpers.HasAvailableBits(in writer, position, SizeInBits) && normalizer(value, out int normalizedChar))
         {
-            writer.WriteByte(position, (byte)normalizedChar, SizeInBits);
+            writer.WriteByte(position, (byte)(normalizedChar + 1), SizeInBits);
             position += SizeInBits;
             return true;
         }
