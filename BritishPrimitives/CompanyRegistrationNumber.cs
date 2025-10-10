@@ -158,7 +158,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out CompanyRegistrationNumber result)
     {
-        return TryParse(s is null ? [] : s.AsSpan(), provider, out result);
+        return TryParse(s.AsSpan(), provider, out result);
     }
 
     /// <summary>
