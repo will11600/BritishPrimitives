@@ -38,14 +38,13 @@ internal static class NumericBitPacker
     public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ulong value, ulong max = ulong.MaxValue)
     {
         int maxBits = BitOperations.Log2(max);
-        int bitsToWrite = Math.Min(maxBits, SizeInBits - BitOperations.LeadingZeroCount(value));
 
-        if (!writer.CanWrite(position, bitsToWrite))
+        if (!writer.CanWrite(position, maxBits))
         {
             return false;
         }
 
-        int remainingBits = bitsToWrite;
+        int remainingBits = maxBits;
 
         while (remainingBits > 0)
         {
@@ -59,8 +58,6 @@ internal static class NumericBitPacker
             position += chunkLength;
             remainingBits -= chunkLength;
         }
-
-        position += maxBits - bitsToWrite;
 
         return true;
     }
