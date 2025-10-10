@@ -30,17 +30,6 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
     /// <inheritdoc/>
     public static int MaxLength { get; } = 3;
 
-    internal InwardPostalCode(ReadOnlySpan<char> chars)
-    {
-        int position = 0;
-
-        fixed (byte* ptr = _value)
-        {
-            BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
-            writer.PackAlphanumeric(ref position, chars);
-        }
-    }
-
     /// <summary>
     /// Converts the span representation of an inward postal code to its <see cref="InwardPostalCode"/> equivalent.
     /// </summary>
@@ -86,7 +75,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
     {
         int length;
 
-        var payload = s.TrimStart();
+        var payload = s.Trim();
 
         result = new InwardPostalCode();
         fixed (byte* ptr = result._value)
@@ -192,7 +181,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
         fixed (byte* pValue = _value)
         {
             BitReader reader = BitReader.Create(pValue, SizeInBytes);
-            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
+            charsWritten = reader.UnpackAlphanumeric(ref position, destination[..MaxLength]);
         }
 
         return charsWritten == MaxLength;

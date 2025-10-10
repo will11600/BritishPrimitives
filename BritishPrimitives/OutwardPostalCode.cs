@@ -22,8 +22,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
 {
     internal const int SizeInBytes = 3;
 
-    private static readonly SearchValues<char> _invalidFirstLetters = SearchValues.Create("IJQVXZijqvxz");
-    private static readonly SearchValues<char> _invalidSecondLetters = SearchValues.Create("CIKMOVQUZcikmovquz");
+    private const string GirobankBootle = "GIR";
 
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
@@ -35,17 +34,6 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
     /// The minimum length in characters of the <see langword="string"/> representation of <see cref="OutwardPostalCode"/>.
     /// </summary>
     public static int MinLength { get; } = 2;
-
-    internal OutwardPostalCode(ReadOnlySpan<char> chars)
-    {
-        int position = 0;
-
-        fixed (byte* ptr = _value)
-        {
-            BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
-            writer.PackAlphanumeric(ref position, chars);
-        }
-    }
 
     /// <summary>
     /// Converts the span representation of an outward postal code to its <see cref="OutwardPostalCode"/> equivalent.
@@ -90,48 +78,29 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out OutwardPostalCode result)
     {
-        var payload = s.TrimStart();
+        var payload = s.Trim();
 
-        OutwardPostalCode outwardCode = new();
+        result = new OutwardPostalCode();
 
-        BitWriter writer = BitWriter.Create(outwardCode._value, SizeInBytes);
-        int position = 0;
-
-        return !_invalidFirstLetters.Contains(payload[0]) && payload.Length switch
+        fixed (byte* ptr = result._value)
         {
-            2 => TryWritePattern_A9(in writer, payload, ref position),
-            3 => TryWritePattern_A99_AA9_ANA(in writer, payload, ref position),
-            4 => TryWritePattern_AANN_AANA(writer, payload, ref position),
-            _ => false
-        };
-    }
+            BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
+            int position = 0;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryWritePattern_A9(ref readonly BitWriter writer, ReadOnlySpan<char> payload, ref int position)
-    {
-        return writer.TryPackLetter(ref position, payload[0]) && writer.TryPackDigit(ref position, payload[1]);
-    }
+            int charsPacked = writer.PackLetters(ref position, payload);
+            if ((payload.Length - charsPacked) > 0)
+            {
+                charsPacked += writer.PackDigits(ref position, payload[charsPacked..]);
+                return (payload.Length - charsPacked) switch
+                {
+                    0 => true,
+                    1 => writer.TryPackLetter(ref position, payload[charsPacked]),
+                    _ => false
+                };
+            }          
+        }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryWritePattern_A99_AA9_ANA(ref readonly BitWriter writer, ReadOnlySpan<char> payload, ref int position)
-    {
-        return writer.TryPackAlphanumeric(ref position, payload[0])
-          && (writer.TryPackDigit(ref position, payload[1])
-          || TryWritePattern_AA9_ANA(writer, payload[1], payload[2], ref position));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryWritePattern_AA9_ANA(BitWriter writer, char c1, char c2, ref int position)
-    {
-        return writer.TryPackLetter(ref position, c1) && !_invalidSecondLetters.Contains(c1) && writer.TryPackDigit(ref position, c2);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryWritePattern_AANN_AANA(BitWriter writer, ReadOnlySpan<char> payload, ref int position)
-    {
-        return writer.PackLetters(ref position, payload[..2]) == 2
-          && writer.TryPackDigit(ref position, payload[3])
-          && writer.TryPackAlphanumeric(ref position, payload[4]);
+        return payload.Equals(GirobankBootle, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -209,10 +178,10 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
     {
         int position = 0;
 
-        fixed (byte* pValue = _value)
+        fixed (byte* ptr = _value)
         {
-            BitReader reader = BitReader.Create(pValue, SizeInBytes);
-            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
+            BitReader reader = BitReader.Create(ptr, SizeInBytes);
+            charsWritten = reader.UnpackAlphanumeric(ref position, destination[..MaxLength]);
         }
 
         return charsWritten >= MinLength && charsWritten <= MaxLength;

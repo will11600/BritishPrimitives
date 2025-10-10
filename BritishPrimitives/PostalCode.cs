@@ -12,7 +12,6 @@ namespace BritishPrimitives;
 public readonly record struct PostalCode : IPrimitive<PostalCode>
 {
     private const int SizeInBytes = OutwardPostalCode.SizeInBytes + InwardPostalCode.SizeInBytes;
-    private const string GirobankBootle = "GIR0AA";
 
     private static readonly int _inwardCodeShift = OutwardPostalCode.MaxLength * AlphanumericBitPacker.SizeInBits;
 
@@ -93,72 +92,19 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out PostalCode result)
     {
-        Span<Range> ranges = stackalloc Range[3];
-        return s.Split(ranges, Character.Whitespace, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) switch
+        var payload = s.Trim();
+
+        if (payload.Length < MinLength)
         {
-            2 => TryParseInnerAndOutwardCodes(s[ranges[0]], s[ranges[1]], provider, out result),
-            1 => TryExtractInwardAndOutwardCodes(s, ranges[0], out var outward, out var inward) && TryParseInnerAndOutwardCodes(outward, inward, provider, out result),
-            _ => Helpers.FalseOutDefault(out result)
-        };
-    }
-
-    private static bool TryExtractInwardAndOutwardCodes(ReadOnlySpan<char> s, Range range, out ReadOnlySpan<char> outwardCode, out ReadOnlySpan<char> inwardCode)
-    {
-        var payload = s[range];
-
-        if (payload.Length >= MinLength)
-        {
-            outwardCode = payload[..OutwardPostalCode.MaxLength];
-            inwardCode = payload[^InwardPostalCode.MaxLength..];
-
-            return true;
+            return Helpers.FalseOutDefault(out result);
         }
 
-        inwardCode = default;
-        outwardCode = default;
+        bool parsedOutwardCode = OutwardPostalCode.TryParse(payload[..^InwardPostalCode.MaxLength], provider, out OutwardPostalCode outwardCode);
+        bool parsedInwardCode = InwardPostalCode.TryParse(payload[^InwardPostalCode.MaxLength..], provider, out InwardPostalCode inwardCode);
 
-        return false;
-    }
-
-    private static bool TryParseInnerAndOutwardCodes(ReadOnlySpan<char> outwardCodeChars, ReadOnlySpan<char> inwardCodeChars, IFormatProvider? provider, out PostalCode result)
-    {
-        if (TryParseGirobankBootle(inwardCodeChars, outwardCodeChars, out result))
-        {
-            return true;
-        }
-
-        bool parsedOutwardCode = OutwardPostalCode.TryParse(outwardCodeChars, provider, out OutwardPostalCode outwardCode);
-        bool parsedInwardCode = InwardPostalCode.TryParse(inwardCodeChars, provider, out InwardPostalCode inwardCode);
         result = new PostalCode(outwardCode, inwardCode);
+
         return parsedOutwardCode && parsedInwardCode;
-    }
-
-    private static bool TryParseGirobankBootle(ReadOnlySpan<char> outwardCodeChars, ReadOnlySpan<char> inwardCodeChars, out PostalCode result)
-    {
-        bool outwardMatch = CaseInsensitiveEquals(outwardCodeChars, GirobankBootle, 0, out var girOutward);
-        bool inwardMatch = CaseInsensitiveEquals(inwardCodeChars, GirobankBootle, outwardCodeChars.Length, out var girInward);
-
-        if (outwardMatch && inwardMatch)
-        {
-            OutwardPostalCode outwardCode = new(girOutward);
-            InwardPostalCode inwardCode = new(girInward);
-            result = new PostalCode(outwardCode, inwardCode);
-            return true;
-        }
-
-        return Helpers.FalseOutDefault(out result);
-    }
-
-    private static bool CaseInsensitiveEquals(ReadOnlySpan<char> left, string right, int offset, out ReadOnlySpan<char> result)
-    {
-        if (offset >= 0 && right.Length >= (left.Length + offset))
-        {
-            result = right.AsSpan(offset, left.Length);
-            return left.Equals(result, StringComparison.OrdinalIgnoreCase);
-        }
-
-        result = default;
-        return false;
     }
 
     /// <summary>
@@ -223,33 +169,22 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
     /// <returns><see langword="true"/> if the formatting was successful; otherwise, <see langword="false"/>.</returns>
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
-        if (!PrimitiveFormat.TryParse(format, out char formatSpecifier))
+        if (destination.Length < MinLength || !PrimitiveFormat.TryParse(format, out char formatSpecifier))
         {
             return Helpers.FalseOutDefault(out charsWritten);
         }
 
-        int requiredLength;
+        bool outwardCodeFormatted = outwardCode.TryFormat(destination, out charsWritten, format, provider);
+
         if (formatSpecifier == PrimitiveFormat.Spaced)
         {
-            requiredLength = MaxLength;
-            charsWritten = 1; // for the space
-        }
-        else
-        {
-            requiredLength = MinLength;
-            charsWritten = 0;
+            destination[charsWritten++] = Character.Whitespace;
         }
 
-        if (destination.Length < requiredLength)
-        {
-            return Helpers.FalseOutDefault(out charsWritten);
-        }
+        bool inwardCodeFormatted = inwardCode.TryFormat(destination[charsWritten..], out int inwardCharsWritten, format, provider);
+        charsWritten += inwardCharsWritten;
 
-        bool outwardCodeFormatted = outwardCode.TryFormat(destination[OutwardPostalCode.MaxLength..], out int outwardCharsWritten, format, provider);
-        bool inwardCodeFormatted = inwardCode.TryFormat(destination[^InwardPostalCode.MaxLength..], out int inwardCharsWritten, format, provider);
-
-        charsWritten += inwardCharsWritten + outwardCharsWritten;
-        return inwardCodeFormatted && outwardCodeFormatted && charsWritten == requiredLength;
+        return inwardCodeFormatted && outwardCodeFormatted;
     }
 
     /// <inheritdoc/>
