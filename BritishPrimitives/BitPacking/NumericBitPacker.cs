@@ -9,7 +9,7 @@ internal static class NumericBitPacker
     public const int SizeInBits = sizeof(ulong) * Helpers.BitsPerByte;
     private const int Log10MaxInt32PlusOne = 9;
 
-    public static bool TryUnpackUInt64(this ref readonly BitReader reader, ref int position, out ulong value, ulong max = ulong.MaxValue)
+    public static bool TryUnpackInteger(this ref readonly BitReader reader, ref int position, out ulong value, ulong max = ulong.MaxValue)
     {
         value = default;
 
@@ -35,7 +35,7 @@ internal static class NumericBitPacker
         return true;
     }
 
-    public static bool TryPackUInt64(this ref readonly BitWriter writer, ref int position, ulong value, ulong max = ulong.MaxValue)
+    public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ulong value, ulong max = ulong.MaxValue)
     {
         int maxBits = BitOperations.Log2(max);
         int bitsToWrite = Math.Min(maxBits, SizeInBits - BitOperations.LeadingZeroCount(value));
@@ -65,33 +65,33 @@ internal static class NumericBitPacker
         return true;
     }
 
-    public static bool TryPackNumbers(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars)
+    public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars)
     {
-        return TryPackNumbers(in writer, ref position, chars, NumberStyles.None, CultureInfo.InvariantCulture);
+        return TryPackInteger(in writer, ref position, chars, NumberStyles.None, CultureInfo.InvariantCulture);
     }
 
-    public static bool TryPackNumbers(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, IFormatProvider? formatProvider)
+    public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, IFormatProvider? formatProvider)
     {
-        return TryPackNumbers(in writer, ref position, chars, NumberStyles.None, formatProvider);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryPackNumbers(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, NumberStyles styles, IFormatProvider? formatProvider = null)
-    {
-        ulong max = MaxNumberWithDigitCount(chars.Length);
-        return uint.TryParse(chars, styles, formatProvider, out uint result) && writer.TryPackUInt64(ref position, result, max);
-    }
-
-    public static int UnpackNumbers(this ref readonly BitReader reader, ref int position, Span<char> chars)
-    {
-        return UnpackNumbers(in reader, ref position, chars, CultureInfo.InvariantCulture);
+        return TryPackInteger(in writer, ref position, chars, NumberStyles.None, formatProvider);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int UnpackNumbers(this ref readonly BitReader reader, ref int position, Span<char> chars, IFormatProvider? formatProvider)
+    public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, NumberStyles styles, IFormatProvider? formatProvider = null)
     {
-        ulong max = MaxNumberWithDigitCount(chars.Length);
-        if (TryUnpackUInt64(in reader, ref position, out ulong result, max) && TryFormatDigits(result, chars, formatProvider, out int charsWritten))
+        ulong max = MaxValueForDigitCount(chars.Length);
+        return uint.TryParse(chars, styles, formatProvider, out uint result) && writer.TryPackInteger(ref position, result, max);
+    }
+
+    public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars)
+    {
+        return UnpackInteger(in reader, ref position, chars, CultureInfo.InvariantCulture);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars, IFormatProvider? formatProvider)
+    {
+        ulong max = MaxValueForDigitCount(chars.Length);
+        if (TryUnpackInteger(in reader, ref position, out ulong result, max) && TryFormatDigits(result, chars, formatProvider, out int charsWritten))
         {
             return charsWritten;
         }
@@ -114,7 +114,7 @@ internal static class NumericBitPacker
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong MaxNumberWithDigitCount(int length)
+    private static ulong MaxValueForDigitCount(int length)
     {
         return Helpers.Pow((uint)length, 10U) - 1U;
     }

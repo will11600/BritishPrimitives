@@ -37,7 +37,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
         fixed (byte* ptr = _value)
         {
             BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
-            writer.PackLettersAndNumbers(ref position, chars);
+            writer.PackAlphanumeric(ref position, chars);
         }
     }
 
@@ -84,10 +84,9 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out InwardPostalCode result)
     {
-        int offset = Character.SkipWhitespace(s);
         int length;
 
-        var payload = s[offset..];
+        var payload = s.TrimStart();
 
         result = new InwardPostalCode();
         fixed (byte* ptr = result._value)
@@ -95,7 +94,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
             BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
             int position = 0;
 
-            if (!writer.TryPackAlphanumericLetter(ref position, payload[0]))
+            if (!writer.TryPackDigit(ref position, payload[0]))
             {
                 return Helpers.FalseOutDefault(out result);
             }
@@ -103,7 +102,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
             for (length = 1; length < payload.Length; length++)
             {
                 ref readonly char c = ref payload[length];
-                if (!_invalidLetters.Contains(c) && writer.TryPackAlphanumericLetter(ref position, c))
+                if (!_invalidLetters.Contains(c) && writer.TryPackLetter(ref position, c))
                 {
                     continue;
                 }
@@ -193,7 +192,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
         fixed (byte* pValue = _value)
         {
             BitReader reader = BitReader.Create(pValue, SizeInBytes);
-            charsWritten = reader.UnpackLettersAndNumbers(ref position, destination);
+            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
         }
 
         return charsWritten == MaxLength;
