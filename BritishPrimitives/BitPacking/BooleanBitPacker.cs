@@ -20,7 +20,7 @@ internal static class BooleanBitPacker
     {
         if (reader.CanRead(position, SizeInBits))
         {
-            Bit result = (Bit)reader.ReadByte(position++, SizeInBits);
+            Bit result = (Bit)reader.ReadByte(position, SizeInBits);
             position += SizeInBits;
             return result;
         }
