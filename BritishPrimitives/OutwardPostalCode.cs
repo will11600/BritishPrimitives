@@ -88,7 +88,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
             int position = 0;
 
             int charsPacked = writer.PackLetters(ref position, payload);
-            if ((payload.Length - charsPacked) > 0)
+            if (charsPacked > 0 && charsPacked < payload.Length)
             {
                 charsPacked += writer.PackDigits(ref position, payload[charsPacked..]);
                 return (payload.Length - charsPacked) switch
@@ -181,7 +181,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
         fixed (byte* ptr = _value)
         {
             BitReader reader = BitReader.Create(ptr, SizeInBytes);
-            charsWritten = reader.UnpackAlphanumeric(ref position, destination[..MaxLength]);
+            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
         }
 
         return charsWritten >= MinLength && charsWritten <= MaxLength;

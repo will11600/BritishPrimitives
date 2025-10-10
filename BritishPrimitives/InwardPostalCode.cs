@@ -181,7 +181,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
         fixed (byte* pValue = _value)
         {
             BitReader reader = BitReader.Create(pValue, SizeInBytes);
-            charsWritten = reader.UnpackAlphanumeric(ref position, destination[..MaxLength]);
+            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
         }
 
         return charsWritten == MaxLength;

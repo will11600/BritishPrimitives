@@ -18,10 +18,10 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
     /// <summary>
     /// The minimum length in characters of the <see langword="string"/> representation of <see cref="PostalCode"/>.
     /// </summary>
-    public static int MinLength { get; } = OutwardPostalCode.MaxLength + InwardPostalCode.MaxLength;
+    public static int MinLength { get; } = OutwardPostalCode.MinLength + InwardPostalCode.MaxLength;
 
     /// <inheritdoc/>
-    public static int MaxLength { get; } = MinLength + 1; // +1 for the space
+    public static int MaxLength { get; } = OutwardPostalCode.MaxLength + InwardPostalCode.MaxLength + 1; // +1 for the space
 
     /// <summary>
     /// Gets the outward code component of the postal code.
