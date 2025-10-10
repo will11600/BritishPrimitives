@@ -2,13 +2,13 @@
 
 namespace BritishPrimitives.BitPacking;
 
-internal unsafe readonly ref struct BitWriter
+internal unsafe readonly ref struct BitWriter : IBitPacker
 {
     public required byte* Value { get; init; }
 
     public required int ByteLength { get; init; }
 
-    public required long BitLength { get; init; }
+    public required int BitLength { get; init; }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteByte(int position, byte value, int bitLength)

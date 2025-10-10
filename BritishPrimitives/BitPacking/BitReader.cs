@@ -2,7 +2,7 @@
 
 namespace BritishPrimitives.BitPacking;
 
-internal unsafe readonly ref struct BitReader
+internal unsafe readonly ref struct BitReader : IBitPacker
 {
     public required byte* Value { get; init; }
 

@@ -1,19 +1,27 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace BritishPrimitives;
 
 internal static class PrimitiveFormat
 {
-    public const string Specifiers = "GS";
+    public const char General = 'G';
+    public const char Spaced = 'S';
 
-    public static char General => Specifiers[0];
+    private static readonly SearchValues<char> _specifiers = SearchValues.Create([General, Spaced]);
 
-    public static char Spaced => Specifiers[1];
+    public const int MaxSpecifierCount = 1;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryParse(ReadOnlySpan<char> format, out char specifier)
+    public static bool TryParse(ReadOnlySpan<char> format, out char specifier, char defaultSpecifer = General)
     {
-        specifier = format.IsEmpty ? General : char.ToUpperInvariant(format[0]);
-        return format.Length <= 1 && Specifiers.Contains(specifier);
+        if (format.IsEmpty)
+        {
+            specifier = defaultSpecifer;
+            return true;
+        }
+
+        specifier = char.ToUpperInvariant(format[0]);
+        return format.Length <= MaxSpecifierCount && _specifiers.Contains(specifier);
     }
 }
