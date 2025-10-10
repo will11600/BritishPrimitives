@@ -40,13 +40,13 @@ internal static class Helpers
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool CanWrite(this ref readonly BitWriter writer, int position, int bitLength)
     {
-        return position >= 0 && (position + bitLength) < writer.BitLength;
+        return position >= 0 && (position + bitLength) <= writer.BitLength;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool CanRead(this ref readonly BitReader writer, int position, int bitLength)
     {
-        return position >= 0 && (position + bitLength) < writer.BitLength;
+        return position >= 0 && (position + bitLength) <= writer.BitLength;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
