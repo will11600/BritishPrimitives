@@ -38,10 +38,9 @@ internal static class AlphanumericBitPacker
             return count;
         }
 
-        while (count < chars.Length)
+        for (; count < chars.Length && TryUnpackCharacter(in reader, ref position, out char result); count++)
         {
-            chars[count++] = Characters[reader.ReadByte(position, SizeInBits)];
-            position += SizeInBits;
+            chars[count] = result;
         }
 
         return count;
@@ -82,6 +81,20 @@ internal static class AlphanumericBitPacker
         }
 
         return count;
+    }
+
+    private static bool TryUnpackCharacter(this ref readonly BitReader reader, ref int position, out char result)
+    {
+        int index = reader.ReadByte(position, SizeInBits);
+        position += SizeInBits;
+
+        if (index < Characters.Length)
+        {
+            result = Characters[index];
+            return true;
+        }
+
+        return Helpers.FalseOutDefault(out result);
     }
 
     private static bool TryPack(this ref readonly BitWriter writer, ref int position, char value, Normalizer normalizer)
