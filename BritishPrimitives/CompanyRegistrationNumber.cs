@@ -104,16 +104,18 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
             BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
 
             int position = TypeFlagBitLength;
-            bool isLetterPrefix = false;
-            int mainNumberOffset = 0;
 
+            bool isLetterPrefix;
+            int mainNumberOffset;
             switch (writer.PackLetters(ref position, payload[..PrefixLength]))
             {
                 case PrefixLength:
                     isLetterPrefix = true;
-                    mainNumberOffset = PrefixBitLength;
+                    mainNumberOffset = PrefixLength;
                     break;
                 case 0:
+                    isLetterPrefix = false;
+                    mainNumberOffset = 0;
                     break;
                 default:
                     return false;
