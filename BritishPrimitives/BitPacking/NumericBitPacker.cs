@@ -116,6 +116,6 @@ internal static class NumericBitPacker
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong MaxValueForDigitCount(int length)
     {
-        return Helpers.Pow((uint)length, 10U) - 1U;
+        return Helpers.Pow(10U, (uint)length) - 1U;
     }
 }
