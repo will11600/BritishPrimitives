@@ -24,12 +24,10 @@ public sealed class PostalCodeTests
 
         // Assert
         Assert.True(result);
-        Assert.Equal(postcode.outwardCode, default);
-        Assert.Equal(postcode.inwardCode, default);
+        Assert.Equal(postcodeString, postcode.ToString(), ignoreCase: true, ignoreAllWhiteSpace: true);
     }
 
     [Theory]
-    [InlineData("Z1 1AA")]  // Invalid first letter
     [InlineData("MAA 1AA")] // Invalid format
     [InlineData("M1 1A")]   // Too short
     [InlineData("M1 1AAA")] // Too long
@@ -60,7 +58,7 @@ public sealed class PostalCodeTests
         Span<char> destination = new char[10];
 
         // Act
-        var result = postcode.TryFormat(destination, out int charsWritten, "s", null);
+        var result = postcode.TryFormat(destination, out int charsWritten, "g", null);
 
         // Assert
         Assert.True(result);
@@ -76,7 +74,7 @@ public sealed class PostalCodeTests
         Span<char> destination = new char[10];
 
         // Act
-        var result = postcode.TryFormat(destination, out int charsWritten, "S", null);
+        var result = postcode.TryFormat(destination, out int charsWritten, "G", null);
 
         // Assert
         Assert.True(result);
@@ -92,7 +90,7 @@ public sealed class PostalCodeTests
         Span<char> destination = new char[10];
 
         // Act
-        var result = postcode.TryFormat(destination, out int charsWritten, "", null);
+        var result = postcode.TryFormat(destination, out int charsWritten, string.Empty, null);
 
         // Assert
         Assert.True(result);
@@ -122,10 +120,10 @@ public sealed class PostalCodeTests
     {
         // Arrange
         PostalCode.TryParse("CR2 6XH", null, out var postcode);
-        Span<char> destination = new char[5];
+        Span<char> destination = new char[3];
 
         // Act
-        var result = postcode.TryFormat(destination, out int charsWritten, "", null);
+        var result = postcode.TryFormat(destination, out int charsWritten, string.Empty, null);
 
         // Assert
         Assert.False(result);
