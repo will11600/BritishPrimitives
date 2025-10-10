@@ -1,6 +1,6 @@
 ﻿namespace BritishPrimitives;
 
-internal enum VATNumberType : byte
+internal enum VatNumberType : byte
 {
     Standard = 0,
     Branch = 1,

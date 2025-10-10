@@ -40,7 +40,7 @@ public class VATRegistrationNumberTests
     public void TryParse_ShouldSucceed_ForValidVatNumbers(string input)
     {
         // Act
-        var success = VATRegistrationNumber.TryParse(input, null, out var result);
+        var success = VatRegistrationNumber.TryParse(input, null, out var result);
 
         // Assert
         Assert.True(success);
@@ -62,7 +62,7 @@ public class VATRegistrationNumberTests
     public void TryParse_ShouldFail_ForInvalidVatNumbers(string? input)
     {
         // Act
-        var success = VATRegistrationNumber.TryParse(input, null, out var result);
+        var success = VatRegistrationNumber.TryParse(input, null, out var result);
 
         // Assert
         Assert.False(success);
@@ -75,7 +75,7 @@ public class VATRegistrationNumberTests
     public void Parse_ShouldSucceed_ForValidVatNumber()
     {
         // Act
-        var result = VATRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
+        var result = VatRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
 
         // Assert
         Assert.NotEqual(result, default);
@@ -87,7 +87,7 @@ public class VATRegistrationNumberTests
     public void Parse_ShouldThrowFormatException_ForInvalidVatNumbers(string input)
     {
         // Arrange
-        void act() => VATRegistrationNumber.Parse(input, null);
+        void act() => VatRegistrationNumber.Parse(input, null);
 
         // Act & Assert
         Assert.Throws<FormatException>(act);
@@ -105,7 +105,7 @@ public class VATRegistrationNumberTests
     public void ToString_ShouldReturnCorrectlyFormattedString(string input, string? format, string expected)
     {
         // Arrange
-        var vatNumber = VATRegistrationNumber.Parse(input, null);
+        var vatNumber = VatRegistrationNumber.Parse(input, null);
 
         // Act
         var result = vatNumber.ToString(format, null);
@@ -118,7 +118,7 @@ public class VATRegistrationNumberTests
     public void DefaultToString_ShouldUseGeneralFormat()
     {
         // Arrange
-        var vatNumber = VATRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
+        var vatNumber = VatRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
         var expected = "GB999999973";
 
         // Act
@@ -139,7 +139,7 @@ public class VATRegistrationNumberTests
     public void ParseAndFormat_ShouldResultInOriginalCanonicalValue(string input)
     {
         // Arrange
-        var vatNumber = VATRegistrationNumber.Parse(input, null);
+        var vatNumber = VatRegistrationNumber.Parse(input, null);
 
         // Act
         var formatted = vatNumber.ToString("G", null);
@@ -155,8 +155,8 @@ public class VATRegistrationNumberTests
     public void Equals_ShouldReturnTrue_ForIdenticalVatNumbers()
     {
         // Arrange
-        var vat1 = VATRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
-        var vat2 = VATRegistrationNumber.Parse("gb 999 9999 73", null); // Same number, different format
+        var vat1 = VatRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
+        var vat2 = VatRegistrationNumber.Parse("gb 999 9999 73", null); // Same number, different format
 
         // Act & Assert
         Assert.True(vat1.Equals(vat2));
@@ -168,8 +168,8 @@ public class VATRegistrationNumberTests
     public void Equals_ShouldReturnFalse_ForDifferentVatNumbers()
     {
         // Arrange
-        var vat1 = VATRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
-        var vat2 = VATRegistrationNumber.Parse(ValidStandardVatNumberMod9755, null);
+        var vat1 = VatRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
+        var vat2 = VatRegistrationNumber.Parse(ValidStandardVatNumberMod9755, null);
 
         // Act & Assert
         Assert.False(vat1.Equals(vat2));
@@ -181,7 +181,7 @@ public class VATRegistrationNumberTests
     public void Equals_ShouldReturnFalse_ForDifferentTypes()
     {
         // Arrange
-        var vat = VATRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
+        var vat = VatRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
         var otherObject = new object();
 
         // Act & Assert
@@ -194,8 +194,8 @@ public class VATRegistrationNumberTests
     public void GetHashCode_ShouldBeSame_ForEqualObjects()
     {
         // Arrange
-        var vat1 = VATRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
-        var vat2 = VATRegistrationNumber.Parse("gb 999 9999 73", null);
+        var vat1 = VatRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
+        var vat2 = VatRegistrationNumber.Parse("gb 999 9999 73", null);
 
         // Act
         var hash1 = vat1.GetHashCode();
@@ -209,8 +209,8 @@ public class VATRegistrationNumberTests
     public void GetHashCode_ShouldBeDifferent_ForDifferentObjects()
     {
         // Arrange
-        var vat1 = VATRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
-        var vat2 = VATRegistrationNumber.Parse(ValidBranchVatNumber, null);
+        var vat1 = VatRegistrationNumber.Parse(ValidStandardVatNumberMod97, null);
+        var vat2 = VatRegistrationNumber.Parse(ValidBranchVatNumber, null);
 
         // Act
         var hash1 = vat1.GetHashCode();
@@ -226,11 +226,11 @@ public class VATRegistrationNumberTests
     public void ExplicitUlongConversion_ShouldPreserveValue()
     {
         // Arrange
-        var originalVat = VATRegistrationNumber.Parse(ValidBranchVatNumber, null);
+        var originalVat = VatRegistrationNumber.Parse(ValidBranchVatNumber, null);
 
         // Act
         var asUlong = (ulong)originalVat;
-        var convertedBack = (VATRegistrationNumber)asUlong;
+        var convertedBack = (VatRegistrationNumber)asUlong;
 
         // Assert
         Assert.Equal(originalVat, convertedBack);
