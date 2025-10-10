@@ -4,7 +4,7 @@ internal static class BooleanBitPacker
 {
     public const int SizeInBits = 1;
 
-    public static bool TryWriteBit(this ref readonly BitWriter writer, ref int position, bool value)
+    public static bool TryPackBit(this ref readonly BitWriter writer, ref int position, bool value)
     {
         if (writer.CanWrite(position, SizeInBits))
         {
@@ -16,7 +16,7 @@ internal static class BooleanBitPacker
         return false;
     }
 
-    public static Bit ReadBit(this ref readonly BitReader reader, ref int position)
+    public static Bit UnpackBit(this ref readonly BitReader reader, ref int position)
     {
         if (reader.CanRead(position, SizeInBits))
         {
