@@ -38,19 +38,13 @@ internal static class Helpers
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool CanWrite(this ref readonly BitWriter writer, int position, int bitLength)
+    public static bool HasAvailableBits<T>(ref readonly T packer, int position, int bitLength) where T : struct, IBitPacker, allows ref struct
     {
-        return position >= 0 && (position + bitLength) <= writer.BitLength;
+        return (position + bitLength) <= packer.BitLength;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool CanRead(this ref readonly BitReader writer, int position, int bitLength)
-    {
-        return position >= 0 && (position + bitLength) <= writer.BitLength;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int ClampAvailable<T>(ref readonly T packer, int position, int bitsPerItem, int count) where T : struct, IBitPacker, allows ref struct
+    public static int ClampAvailableBits<T>(ref readonly T packer, int position, int bitsPerItem, int count) where T : struct, IBitPacker, allows ref struct
     {
         return Math.Min((packer.BitLength - position) / bitsPerItem, count);
     }

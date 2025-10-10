@@ -6,7 +6,7 @@ internal static class BooleanBitPacker
 
     public static bool TryPackBit(this ref readonly BitWriter writer, ref int position, bool value)
     {
-        if (writer.CanWrite(position, SizeInBits))
+        if (Helpers.HasAvailableBits(in writer, position, SizeInBits))
         {
             writer.WriteByte(position, value ? byte.MaxValue : byte.MinValue, 1);
             position += SizeInBits;
@@ -18,7 +18,7 @@ internal static class BooleanBitPacker
 
     public static Bit UnpackBit(this ref readonly BitReader reader, ref int position)
     {
-        if (reader.CanRead(position, SizeInBits))
+        if (Helpers.HasAvailableBits(in reader, position, SizeInBits))
         {
             Bit result = (Bit)reader.ReadByte(position, SizeInBits);
             position += SizeInBits;

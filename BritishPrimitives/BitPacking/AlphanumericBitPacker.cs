@@ -33,7 +33,7 @@ internal static class AlphanumericBitPacker
     {
         int count = 0;
 
-        int length = Helpers.ClampAvailable(in reader, position, SizeInBits, chars.Length);
+        int length = Helpers.ClampAvailableBits(in reader, position, SizeInBits, chars.Length);
         for (; count < length && TryUnpackCharacter(in reader, ref position, out char result); count++)
         {
             chars[count] = result;
@@ -65,7 +65,7 @@ internal static class AlphanumericBitPacker
     {
         int count = 0;
 
-        int length = Helpers.ClampAvailable(in writer, position, SizeInBits, chars.Length);
+        int length = Helpers.ClampAvailableBits(in writer, position, SizeInBits, chars.Length);
         for (; count < length && normalizer(chars[count], out int normalizedChar); count++)
         {
             writer.WriteByte(position, (byte)normalizedChar, SizeInBits);
@@ -90,7 +90,7 @@ internal static class AlphanumericBitPacker
 
     private static bool TryPack(this ref readonly BitWriter writer, ref int position, char value, Normalizer normalizer)
     {
-        if (writer.CanWrite(position, SizeInBits) && normalizer(value, out int normalizedChar))
+        if (Helpers.HasAvailableBits(in writer, position, SizeInBits) && normalizer(value, out int normalizedChar))
         {
             writer.WriteByte(position, (byte)normalizedChar, SizeInBits);
             position += SizeInBits;

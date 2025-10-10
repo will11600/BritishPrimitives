@@ -15,7 +15,7 @@ internal static class NumericBitPacker
 
         int remainingBits = BitOperations.Log2(max);
 
-        if (!reader.CanRead(position, remainingBits))
+        if (!Helpers.HasAvailableBits(in reader, position, remainingBits))
         {
             return false;
         }
@@ -39,7 +39,7 @@ internal static class NumericBitPacker
     {
         int maxBits = BitOperations.Log2(max);
 
-        if (!writer.CanWrite(position, maxBits))
+        if (!Helpers.HasAvailableBits(in writer, position, maxBits))
         {
             return false;
         }
