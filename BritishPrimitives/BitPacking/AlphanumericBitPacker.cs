@@ -37,6 +37,7 @@ internal static class AlphanumericBitPacker
         for (; count < length && TryUnpackCharacter(in reader, ref position, out char result); count++)
         {
             chars[count] = result;
+            position += SizeInBits;
         }
 
         return count;
@@ -77,7 +78,6 @@ internal static class AlphanumericBitPacker
     private static bool TryUnpackCharacter(this ref readonly BitReader reader, ref int position, out char result)
     {
         int index = reader.ReadByte(position, SizeInBits);
-        position += SizeInBits;
 
         if (index < Characters.Length)
         {
