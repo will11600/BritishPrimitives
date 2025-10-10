@@ -79,7 +79,7 @@ internal static class NumericBitPacker
     public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, NumberStyles styles, IFormatProvider? formatProvider = null)
     {
         ulong max = MaxValueForDigitCount(chars.Length);
-        return uint.TryParse(chars, styles, formatProvider, out uint result) && writer.TryPackInteger(ref position, result, max);
+        return ulong.TryParse(chars, styles, formatProvider, out ulong result) && writer.TryPackInteger(ref position, result, max);
     }
 
     public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars)
