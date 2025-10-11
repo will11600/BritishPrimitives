@@ -4,139 +4,109 @@ namespace BritishPrimitives.BitPacking;
 
 internal static class AlphanumericBitPacker
 {
-    private delegate bool Normalizer(char value, out int result);
-
-    public const int SizeInBits = 6;
-
-    public const string Characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    public const int AlphabetOffset = 10;
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryPackLetter(this ref readonly BitWriter writer, ref int position, char value)
     {
-        return writer.TryPack(ref position, value, TryNormalizeLetter);
+        return writer.TryPack(ref position, value, CharacterSet.Alphanumeric);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryPackLetter(this ref readonly BitWriter writer, ref int position, char value, ICharacterSet characterSet)
+    {
+        return writer.TryPack(ref position, value, characterSet);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryPackDigit(this ref readonly BitWriter writer, ref int position, char value)
     {
-        return writer.TryPack(ref position, value, TryNormalizeDigit);
+        return writer.TryPack(ref position, value, CharacterSet.Alphanumeric);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryPackAlphanumeric(this ref readonly BitWriter writer, ref int position, char value)
     {
-        return writer.TryPack(ref position, value, TryNormalizeAlphanumeric);
+        return writer.TryPack(ref position, value, CharacterSet.Alphanumeric);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int UnpackLetters(this ref readonly BitReader reader, ref int position, Span<char> chars)
+    {
+        return UnpackCharacters(in reader, ref position, chars, CharacterSet.Alphabetical);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UnpackAlphanumeric(this ref readonly BitReader reader, ref int position, Span<char> chars)
+    {
+        return UnpackCharacters(in reader, ref position, chars, CharacterSet.Alphanumeric);
+    }
+
+    public static int UnpackCharacters(ref readonly BitReader reader, ref int position, Span<char> chars, ICharacterSet characterSet)
     {
         int count = 0;
 
-        int length = Helpers.ClampAvailableBits(in reader, position, SizeInBits, chars.Length);
-        for (; count < length && TryUnpackCharacter(in reader, ref position, out char result); count++)
+        int length = Helpers.ClampAvailableBits(in reader, position, characterSet.SizeInBits, chars.Length);
+        for (; count < length && TryUnpackCharacter(in reader, ref position, characterSet, out char result); count++)
         {
             chars[count] = result;
-            position += SizeInBits;
+            position += characterSet.SizeInBits;
         }
 
         return count;
+    }
+
+    private static bool TryUnpackCharacter(in BitReader reader, ref int position, ICharacterSet characterSet, out char result)
+    {
+        int charByte = reader.ReadByte(position, characterSet.SizeInBits);
+        return characterSet.TryOffset(charByte - 1, out result);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PackAlphanumeric(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars)
     {
-        return PackAlphanumeric(in writer, ref position, chars, TryNormalizeAlphanumeric);
+        return Pack(in writer, ref position, chars, CharacterSet.Alphanumeric);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int PackLetters(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, ICharacterSet characterSet)
+    {
+        return Pack(in writer, ref position, chars, characterSet);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PackLetters(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars)
     {
-        return PackAlphanumeric(in writer, ref position, chars, TryNormalizeLetter);
+        return Pack(in writer, ref position, chars, CharacterSet.Alphanumeric);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PackDigits(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars)
     {
-        return PackAlphanumeric(in writer, ref position, chars, TryNormalizeDigit);
+        return Pack(in writer, ref position, chars, CharacterSet.Alphanumeric);
     }
 
-    private static int PackAlphanumeric(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, Normalizer normalizer)
+    public static int Pack(ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, ICharacterSet characterSet)
     {
         int count = 0;
 
-        int length = Helpers.ClampAvailableBits(in writer, position, SizeInBits, chars.Length);
-        for (; count < length && normalizer(chars[count], out int normalizedChar); count++)
+        int length = Helpers.ClampAvailableBits(in writer, position, characterSet.SizeInBits, chars.Length);
+        for (; count < length && characterSet.TryNormalize(chars[count], out int normalizedChar); count++)
         {
-            writer.WriteByte(position, (byte)(normalizedChar + 1), SizeInBits);
-            position += SizeInBits;
+            writer.WriteByte(position, (byte)(normalizedChar + 1), characterSet.SizeInBits);
+            position += characterSet.SizeInBits;
         }
 
         return count;
     }
 
-    private static bool TryUnpackCharacter(this ref readonly BitReader reader, ref int position, out char result)
+    public static bool TryPack(this ref readonly BitWriter writer, ref int position, char value, ICharacterSet characterSet)
     {
-        int index = reader.ReadByte(position, SizeInBits);
-
-        if (index > 0 && index < Characters.Length)
+        if (Helpers.HasAvailableBits(in writer, position, characterSet.SizeInBits) && characterSet.TryNormalize(value, out int normalizedChar))
         {
-            result = Characters[index - 1];
-            return true;
-        }
-
-        return Helpers.FalseOutDefault(out result);
-    }
-
-    private static bool TryPack(this ref readonly BitWriter writer, ref int position, char value, Normalizer normalizer)
-    {
-        if (Helpers.HasAvailableBits(in writer, position, SizeInBits) && normalizer(value, out int normalizedChar))
-        {
-            writer.WriteByte(position, (byte)(normalizedChar + 1), SizeInBits);
-            position += SizeInBits;
+            writer.WriteByte(position, (byte)(normalizedChar + 1), characterSet.SizeInBits);
+            position += characterSet.SizeInBits;
             return true;
         }
 
         return false;
-    }
-
-    private static bool TryNormalizeDigit(char value, out int result)
-    {
-        if (value >= Character.Zero && value <= Character.Nine)
-        {
-            result = value - Character.Zero;
-            return true;
-        }
-
-        return Helpers.FalseOutDefault(out result);
-    }
-
-    private static bool TryNormalizeLetter(char value, out int result) => value switch
-    {
-        >= Character.LowercaseA and <= Character.LowercaseZ => Normalize(value, Character.LowercaseA, AlphabetOffset, out result),
-        >= Character.UppercaseA and <= Character.UppercaseZ => Normalize(value, Character.UppercaseA, AlphabetOffset, out result),
-        _ => Helpers.FalseOutDefault(out result),
-    };
-
-    private static bool TryNormalizeAlphanumeric(char value, out int result) => value switch
-    {
-        >= Character.LowercaseA and <= Character.LowercaseZ => Normalize(value, Character.LowercaseA, AlphabetOffset, out result),
-        >= Character.UppercaseA and <= Character.UppercaseZ => Normalize(value, Character.UppercaseA, AlphabetOffset, out result),
-        >= Character.Zero and <= Character.Nine => Normalize(value, Character.Zero, out result),
-        _ => Helpers.FalseOutDefault(out result)
-    };
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool Normalize(char value, char start, int offset, out int result)
-    {
-        result = offset + (value - start);
-        return true;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool Normalize(char value, char start, out int result)
-    {
-        result = value - start;
-        return true;
     }
 }
