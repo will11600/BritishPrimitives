@@ -12,7 +12,7 @@ namespace BritishPrimitives;
 /// </summary>
 /// Internal Bit Layout (34 bits):
 /// ----------------------------------------
-/// | Bits 0-10 | Bits 11-31  | Bits 32-34 |
+/// | Bits 0-9  | Bits 10-30  | Bits 31-32 |
 /// |-----------|-------------|------------|
 /// | Prefix    | Main Number | Suffix     |
 /// | (10 bits) | (20 bits)   | (2 bits)   |
@@ -112,18 +112,23 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
     private static bool TryParseDeliminated(ref readonly BitWriter writer, ReadOnlySpan<char> s, Span<Range> ranges)
     {
         Span<char> mainNumber = stackalloc char[NumericalSegmentCount * SegmentLength];
-        for (int i = 1; i < NumericalSegmentCount; i++)
-        {
-            ReadOnlySpan<char> source = s[ranges[i]];
-            Span<char> destination = mainNumber.Slice(i * SegmentLength, SegmentLength);
-            source.CopyTo(destination);
-        }
+        ParseSpaceDeliminatedMainNumber(s, ranges.Slice(1, NumericalSegmentCount), mainNumber);
 
         var prefix = s[ranges[0]];
         var suffix = s[ranges[4]];
 
         int position = 0;
         return TryParsePrefix(in writer, prefix, ref position) && writer.TryPackInteger(ref position, mainNumber) && TryParseSuffix(in writer, suffix, ref position);
+    }
+
+    private static void ParseSpaceDeliminatedMainNumber(ReadOnlySpan<char> s, Span<Range> ranges, Span<char> mainNumber)
+    {
+        for (int i = 0; i < ranges.Length; i++)
+        {
+            ReadOnlySpan<char> source = s[ranges[i]];
+            Span<char> destination = mainNumber.Slice(i * SegmentLength, SegmentLength);
+            source.CopyTo(destination);
+        }
     }
 
     private static bool TryParseCompact(ref readonly BitWriter writer, ReadOnlySpan<char> s)
