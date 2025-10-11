@@ -1,7 +1,8 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using BritishPrimitives.BitPacking;
+using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static BritishPrimitives.CharUtils;
 
 namespace BritishPrimitives;
 
@@ -9,54 +10,37 @@ namespace BritishPrimitives;
 /// Represents a UK National Insurance Number (NINo), a unique reference number
 /// used in the administration of the UK social security and tax systems.
 /// </summary>
-/// <remarks>
-/// A National Insurance Number consists of two prefix letters, six digits, and a suffix letter.
-/// It is stored internally in a compact, read-only form.
-/// </remarks>
-[StructLayout(LayoutKind.Explicit, Size = 5)]
-public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumber>
+/// Internal Bit Layout (34 bits):
+/// ----------------------------------------
+/// | Bits 0-10 | Bits 11-31  | Bits 32-34 |
+/// |-----------|-------------|------------|
+/// | Prefix    | Main Number | Suffix     |
+/// | (10 bits) | (20 bits)   | (2 bits)   |
+/// ----------------------------------------
+[StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
+public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumber>
 {
-    private readonly struct UnpackedNationalInsuranceNumber(uint lo, byte hi)
-    {
-        const uint DigitMask = (1U << DigitBits) - 1;
-        const uint LetterMask = (1U << LetterBits) - 1;
+    private const int SizeInBytes = 4;
 
-        public readonly uint digits = hi & DigitMask;
-        public readonly char prefix1 = (char)(((lo >> DigitBits) & LetterMask) + UppercaseA);
-        public readonly char prefix2 = (char)(((lo >> (DigitBits + LetterBits)) & LetterMask) + UppercaseA);
-        public readonly char suffix = (char)(hi + UppercaseA);
-    }
+    private const string DisallowedPrefixes = "BGGBKNNKNTTNZZ";
 
-    private const string IllegalPrefixChars = "DFIQUV";
-    private const string IllegalPrefixes = "BGGBKNNKNTTNZZ";
-
-    private const string FormatSpecifiers = "GS";
-    private static char FormatGeneral => FormatSpecifiers[0];
-    private static char FormatSpaced => FormatSpecifiers[1];
+    private static readonly SearchValues<char> _disallowedPrefixChars = SearchValues.Create("DFIQUVdfiquv");
 
     /// <inheritdoc/>
-    public static int MaxLength => SpacedNiStringLength;
+    public static int MaxLength { get; } = 13;
 
-    private const int NiStringLength = 9;
-    private const int SpacedNiStringLength = 13;
+    public static int MinLength { get; } = 9;
 
-    private const int PrefixLength = 2;
-    private const int SuffixOffset = 6;
+    private const int DeliminatedSegmentCount = 5;
+    private const int SegmentLength = 2;
+    private const int NumericalSegmentCount = 3;
 
-    private const int DigitBits = 20;
-    private const string DigitFormat = "D6";
+    private const char UppercaseD = 'D';
+    private const char LowercaseD = 'd';
+    private const int MaxSuffixValue = UppercaseD - Character.UppercaseA;
 
     [FieldOffset(0)]
-    private readonly uint _lo;
-
-    [FieldOffset(4)]
-    private readonly byte _hi;
-    
-    private NationalInsuranceNumber(uint lo, byte hi)
-    {
-        _lo = lo;
-        _hi = hi;
-    }
+    private fixed byte _value[SizeInBytes];
 
     /// <summary>
     /// Converts the span representation of a National Insurance Number to its <see cref="NationalInsuranceNumber"/> equivalent.
@@ -74,7 +58,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
             return ni;
         }
 
-        throw new FormatException("Invalid national insurance number format.");
+        throw new FormatException(Helpers.FormatExceptionMessage);
     }
 
     /// <summary>
@@ -93,7 +77,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
             return ni;
         }
 
-        throw new FormatException("Invalid national insurance number format.");
+        throw new FormatException(Helpers.FormatExceptionMessage);
     }
 
     /// <summary>
@@ -108,43 +92,92 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out NationalInsuranceNumber result)
     {
-        Span<char> sanitized = stackalloc char[s.Length];
-        if (!TryParseAlphanumericUpperInvariant(s, sanitized, NiStringLength, out int charsWritten))
+        Span<Range> ranges = stackalloc Range[DeliminatedSegmentCount];
+        int rangeCount = s.Split(ranges, Character.Whitespace, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        result = new NationalInsuranceNumber();
+
+        fixed (byte* ptr = result._value)
         {
-            return FalseOutDefault(out result);
+            BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
+            return rangeCount switch
+            {
+                1 => TryParseCompact(in writer, s[ranges[0]]),
+                DeliminatedSegmentCount => TryParseDeliminated(in writer, s, ranges),
+                _ => Helpers.FalseOutDefault(out result),
+            };
+        }
+    }
+
+    private static bool TryParseDeliminated(ref readonly BitWriter writer, ReadOnlySpan<char> s, Span<Range> ranges)
+    {
+        Span<char> mainNumber = stackalloc char[NumericalSegmentCount * SegmentLength];
+        for (int i = 1; i < NumericalSegmentCount; i++)
+        {
+            ReadOnlySpan<char> source = s[ranges[i]];
+            Span<char> destination = mainNumber.Slice(i * SegmentLength, SegmentLength);
+            source.CopyTo(destination);
         }
 
-        Span<char> prefix = sanitized[0..PrefixLength];
-        for (int i = 0; i < IllegalPrefixes.Length; i += PrefixLength)
+        var prefix = s[ranges[0]];
+        var suffix = s[ranges[4]];
+
+        int position = 0;
+        return TryParsePrefix(in writer, prefix, ref position) && writer.TryPackInteger(ref position, mainNumber) && TryParseSuffix(in writer, suffix, ref position);
+    }
+
+    private static bool TryParseCompact(ref readonly BitWriter writer, ReadOnlySpan<char> s)
+    {
+        int position = 0;
+        var prefix = s[..SegmentLength];
+        var suffix = s[^1..1];
+        var mainNumber = s[SegmentLength..^1];
+        return TryParsePrefix(in writer, prefix, ref position) && writer.TryPackInteger(ref position, mainNumber) && TryParseSuffix(in writer, suffix, ref position);
+    }
+
+    private static bool TryParseSuffix(ref readonly BitWriter writer, ReadOnlySpan<char> suffix, ref int position)
+    {
+        if (suffix.Length != 1)
         {
-            if (prefix.SequenceEqual(IllegalPrefixes.AsSpan(i, PrefixLength)))
+            return false;
+        }
+
+        int normalizedChar;
+        char suffixChar = suffix[0];
+        switch (suffixChar)
+        {
+            case >= Character.LowercaseA and <= LowercaseD:
+                normalizedChar = suffixChar - Character.LowercaseA;
+                break;
+            case >= Character.UppercaseA and <= UppercaseD:
+                normalizedChar = suffixChar - Character.UppercaseA;
+                break;
+            default:
+                return false;
+        }
+        
+        return writer.TryPackInteger(ref position, (ulong)normalizedChar, MaxSuffixValue);
+    }
+
+    private static bool TryParsePrefix(ref readonly BitWriter writer, ReadOnlySpan<char> prefix, ref int position)
+    {
+        for (int i = 0; i < DisallowedPrefixes.Length; i += SegmentLength)
+        {
+            if (prefix.Equals(DisallowedPrefixes.AsSpan(i, SegmentLength), StringComparison.OrdinalIgnoreCase))
             {
-                return FalseOutDefault(out result);
+                return false;
             }
         }
 
-        if (!uint.TryParse(sanitized[PrefixLength..SuffixOffset], out uint lo) || lo > 999999U)
+        for (int i = 0; i < prefix.Length; i++)
         {
-            return FalseOutDefault(out result);
-        }
-
-        for (int i = 0; i < PrefixLength; i++)
-        {
-            ref readonly char c = ref prefix[i];
-
-            if (IsValidPrefixLetter(c, i))
+            if (_disallowedPrefixChars.Contains(prefix[i]))
             {
-                lo |= (uint)UppercaseEncode(sanitized[i]) << (DigitBits + (LetterBits * i));
-                continue;
+                return false;
             }
-
-            return FalseOutDefault(out result);
         }
 
-        byte hi = UppercaseEncode(sanitized[^1]);
-
-        result = new NationalInsuranceNumber(lo, hi);
-        return true;
+        return !prefix[^1..1].Equals("O", StringComparison.OrdinalIgnoreCase) && writer.PackLetters(ref position, prefix, CharacterSet.Alphabetical) == SegmentLength;
     }
 
     /// <summary>
@@ -161,7 +194,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     {
         if (s is null)
         {
-            return FalseOutDefault(out result);
+            return Helpers.FalseOutDefault(out result);
         }
 
         return TryParse(s.AsSpan(), provider, out result);
@@ -172,9 +205,9 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     /// </summary>
     /// <param name="other">An object to compare with this object.</param>
     /// <returns><see langword="true"/> if the current object is equal to the <paramref name="other"/> parameter; otherwise, <see langword="false"/>.</returns>
-    public bool Equals(NationalInsuranceNumber other)
+    public readonly bool Equals(NationalInsuranceNumber other)
     {
-        return _hi == other._hi && _lo == other._lo;
+        return this == other;
     }
 
     /// <summary>
@@ -187,9 +220,8 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     /// <exception cref="FormatException">The format string is invalid.</exception>
     public string ToString(string? format, IFormatProvider? formatProvider = null)
     {
-        Span<char> s = stackalloc char[NiStringLength];
-        ReadOnlySpan<char> formatChars = format is null ? [] : format.AsSpan();
-        if (TryFormat(s, out int charsWritten, formatChars, null))
+        Span<char> s = stackalloc char[MaxLength];
+        if (TryFormat(s, out int charsWritten, format.AsSpan(), null))
         {
             return s[..charsWritten].ToString();
         }
@@ -220,21 +252,90 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     /// <returns><see langword="true"/> if the formatting was successful; otherwise, <see langword="false"/>.</returns>
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider = null)
     {
-        char specifier = format.IsEmpty ? FormatGeneral : char.ToUpperInvariant(format[0]);
-
-        if (format.Length > 1 || !FormatSpecifiers.Contains(specifier))
+        if (!PrimitiveFormat.TryParse(format, out char formatSpecifier))
         {
-            charsWritten = 0;
-            return false;
+            return Helpers.FalseOutDefault(out charsWritten);
         }
 
-        UnpackedNationalInsuranceNumber unpacked = new(_lo, _hi);
-        if (specifier == FormatSpaced)
+        Span<char> prefix = stackalloc char[SegmentLength];
+        Span<char> mainNumber = stackalloc char[NumericalSegmentCount * SegmentLength];
+        char suffix;
+
+        fixed (byte* ptr = _value)
         {
-            return TryFormatSpaced(in unpacked, destination, out charsWritten, provider);
+            BitReader reader = BitReader.Create(ptr, SizeInBytes);
+            int position = 0;
+
+            int prefixCharsUnpacked = reader.UnpackLetters(ref position, prefix);
+            int mainNumberCharsUnpacked = reader.UnpackInteger(ref position, mainNumber);
+
+            if (prefixCharsUnpacked != prefix.Length || mainNumberCharsUnpacked != mainNumber.Length || !TryUnpackSuffix(in reader, ref position, out suffix))
+            {
+                return Helpers.FalseOutDefault(out charsWritten);
+            }
         }
 
-        return TryFormatGeneral(in unpacked, destination, out charsWritten, provider);
+        if (formatSpecifier == PrimitiveFormat.Spaced)
+        {
+            return TryFormatSpaced(destination, prefix, mainNumber, suffix, out charsWritten);
+        }
+        
+        return TryFormatCompact(destination, prefix, mainNumber, suffix, out charsWritten);
+    }
+
+    private static bool TryFormatCompact(Span<char> destination, Span<char> prefix, Span<char> mainNumber, char suffix, out int charsWritten)
+    {
+        if (destination.Length < MinLength)
+        {
+            return Helpers.FalseOutDefault(out charsWritten);
+        }
+
+        prefix.CopyTo(destination);
+        charsWritten = prefix.Length;
+
+        mainNumber.CopyTo(destination[charsWritten..]);
+        charsWritten += mainNumber.Length;
+
+        destination[charsWritten++] = suffix;
+
+        return true;
+    }
+
+    private static bool TryFormatSpaced(Span<char> destination, Span<char> prefix, Span<char> mainNumber, char suffix, out int charsWritten)
+    {
+        if (destination.Length < MaxLength)
+        {
+            return Helpers.FalseOutDefault(out charsWritten);
+        }
+
+        prefix.CopyTo(destination);
+        charsWritten = prefix.Length;
+
+        Helpers.AppendWhitespace(destination, ref charsWritten);
+
+        for (int i = 0; i < mainNumber.Length; i += SegmentLength)
+        {
+            var source = mainNumber.Slice(i, SegmentLength);
+            source.CopyTo(destination[charsWritten..]);
+            charsWritten += SegmentLength;
+
+            Helpers.AppendWhitespace(destination, ref charsWritten);
+        }
+
+        destination[charsWritten++] = suffix;
+
+        return true;
+    }
+
+    private static bool TryUnpackSuffix(ref readonly BitReader reader, ref int position, out char suffix)
+    {
+        if (reader.TryUnpackInteger(ref position, out ulong suffixValue, MaxSuffixValue))
+        {
+            suffix = (char)(suffixValue + Character.UppercaseA);
+            return true;
+        }
+
+        return Helpers.FalseOutDefault(out suffix);
     }
 
     /// <summary>
@@ -242,7 +343,7 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     /// </summary>
     /// <param name="obj">The object to compare with the current instance.</param>
     /// <returns><see langword="true"/> if <paramref name="obj"/> is a <see cref="NationalInsuranceNumber"/> that equals the current instance; otherwise, <see langword="false"/>.</returns>
-    public override bool Equals(object? obj)
+    public override readonly bool Equals(object? obj)
     {
         return obj is NationalInsuranceNumber ni && Equals(ni);
     }
@@ -253,113 +354,39 @@ public readonly struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNum
     /// <returns>A 32-bit signed integer hash code.</returns>
     public override int GetHashCode()
     {
-        return HashCode.Combine(_lo, _hi);
+        fixed (byte* ptr = _value)
+        {
+            return Helpers.BuildHashCode(ptr, SizeInBytes);
+        }
     }
 
-    /// <summary>
-    /// Determines whether two specified <see cref="NationalInsuranceNumber"/> objects have the same value.
-    /// </summary>
-    /// <param name="left">The first object to compare.</param>
-    /// <param name="right">The second object to compare.</param>
-    /// <returns><see langword="true"/> if <paramref name="left"/> is equal to <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(NationalInsuranceNumber left, NationalInsuranceNumber right)
     {
-        return left.Equals(right);
+        return Helpers.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 
-    /// <summary>
-    /// Determines whether two specified <see cref="NationalInsuranceNumber"/> objects have different values.
-    /// </summary>
-    /// <param name="left">The first object to compare.</param>
-    /// <param name="right">The second object to compare.</param>
-    /// <returns><see langword="true"/> if <paramref name="left"/> is not equal to <paramref name="right"/>; otherwise, <see langword="false"/>.</returns>
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(NationalInsuranceNumber left, NationalInsuranceNumber right)
     {
-        return !(left == right);
+        return !Helpers.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 
-    /// <summary>
-    /// Explicitly converts a <see cref="NationalInsuranceNumber"/> to its 64-bit unsigned integer representation.
-    /// </summary>
-    /// <param name="ni">The national insurance number to convert.</param>
-    /// <returns>The <see langword="ulong"/> representation of the national insurance number.</returns>
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator ulong(NationalInsuranceNumber ni)
     {
-        return (ulong)ni._hi << (sizeof(uint) * BitsPerByte) | ni._lo;
+        return Helpers.ConcatenateBytes(ni._value, SizeInBytes);
     }
 
-    /// <summary>
-    /// Explicitly converts a 64-bit unsigned integer to its <see cref="NationalInsuranceNumber"/> representation.
-    /// </summary>
-    /// <param name="value">The <see langword="ulong"/> value to convert.</param>
-    /// <returns>The <see cref="NationalInsuranceNumber"/> representation of the value.</returns>
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator NationalInsuranceNumber(ulong value)
     {
-        return new NationalInsuranceNumber((uint)value, (byte)(value >> (sizeof(uint) * BitsPerByte)));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryFormatSpaced(ref readonly UnpackedNationalInsuranceNumber unpacked, Span<char> destination, out int charsWritten, IFormatProvider? provider)
-    {
-        Span<char> digitChars = stackalloc char[SuffixOffset];
-        if (!unpacked.digits.TryFormat(digitChars, out _, DigitFormat, provider))
-        {
-            return FalseOutDefault(out charsWritten);
-        }
-
-        destination[00] = unpacked.prefix1;
-        destination[01] = unpacked.prefix2;
-        destination[02] = Whitespace;
-        destination[03] = digitChars[0];
-        destination[04] = digitChars[1];
-        destination[05] = Whitespace;
-        destination[06] = digitChars[2];
-        destination[07] = digitChars[3];
-        destination[08] = Whitespace;
-        destination[09] = digitChars[4];
-        destination[10] = digitChars[5];
-        destination[11] = Whitespace;
-        destination[12] = unpacked.suffix;
-
-        charsWritten = SpacedNiStringLength;
-        return true;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool TryFormatGeneral(ref readonly UnpackedNationalInsuranceNumber unpacked, Span<char> destination, out int charsWritten, IFormatProvider? provider)
-    {
-        destination[0] = unpacked.prefix1;
-        destination[1] = unpacked.prefix2;
-
-        if (!unpacked.digits.TryFormat(destination.Slice(PrefixLength, SuffixOffset), out _, DigitFormat, provider))
-        {
-            return FalseOutDefault(out charsWritten);
-        }
-
-        destination[NiStringLength - 1] = unpacked.suffix;
-
-        charsWritten = NiStringLength;
-        return true;
-    }
-
-    private static bool IsValidPrefixLetter(char c, int index)
-    {
-        if (c is < UppercaseA or > UppercaseZ)
-        {
-            return false;
-        }
-
-        switch (index)
-        {
-            case 1:
-                if (c == 'O')
-                {
-                    return false;
-                }
-                goto case 0;
-            default:
-            case 0:
-                return !IllegalPrefixChars.Contains(c);
-        }
+        NationalInsuranceNumber ni = new();
+        Helpers.SpreadBytes(value, ni._value, SizeInBytes);
+        return ni;
     }
 }

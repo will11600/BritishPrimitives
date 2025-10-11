@@ -17,6 +17,12 @@ internal static class Helpers
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void AppendWhitespace(Span<char> chars, ref int charsWritten)
+    {
+        chars[charsWritten++] = Character.Whitespace;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong Pow(uint x, uint y)
     {
         ulong result = 1;
