@@ -1,5 +1,6 @@
 ﻿using BritishPrimitives.BitPacking;
 using BritishPrimitives.Text;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace BritishPrimitives;
@@ -65,22 +66,22 @@ internal static class Helpers
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static unsafe ulong ConcatenateBytes(byte* ptr, int length)
+    public static unsafe T ConcatenateBytes<T>(byte* ptr, int length) where T : unmanaged, IUnsignedNumber<T>, IBitwiseOperators<T, T, T>
     {
-        ulong result = default;
+        T result = default;
         for (int i = 0; i < length; i++)
         {
-            result |= (ulong)ptr[i] << (BitsPerByte * i);
+            result |= T.CreateTruncating((ptr[i]) << (BitsPerByte * i));
         }
         return result;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static unsafe void SpreadBytes(ulong number, byte* ptr, int length)
+    public static unsafe void SpreadBytes<T>(T number, byte* ptr, int length) where T : unmanaged, IUnsignedNumber<T>, IShiftOperators<T, int, T>
     {
         for (int i = 0; i < length; i++)
         {
-            ptr[i] = (byte)(number >> (BitsPerByte * i));
+            ptr[i] = byte.CreateTruncating(number >> BitsPerByte * i);
         }
     }
 

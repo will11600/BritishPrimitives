@@ -10,15 +10,13 @@ namespace BritishPrimitives;
 /// Represents a complete United Kingdom postal code, consisting of an outward code and an inward code.
 /// </summary>
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public readonly record struct PostalCode : IPrimitive<PostalCode>
+public readonly record struct PostalCode : IVariableLengthPrimitive<PostalCode>, ICastable<PostalCode, ulong>
 {
     private const int SizeInBytes = OutwardPostalCode.SizeInBytes + InwardPostalCode.SizeInBytes;
 
     private static readonly int _inwardCodeShift = OutwardPostalCode.MaxLength * Transcoders.Alphanumeric.sizeInBits;
 
-    /// <summary>
-    /// The minimum length in characters of the <see langword="string"/> representation of <see cref="PostalCode"/>.
-    /// </summary>
+    /// <inheritdoc/>
     public static int MinLength { get; } = OutwardPostalCode.MinLength + InwardPostalCode.MaxLength;
 
     /// <inheritdoc/>

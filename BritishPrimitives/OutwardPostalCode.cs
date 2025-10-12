@@ -19,7 +19,7 @@ namespace BritishPrimitives;
 /// | (6 bit)     | (6 bit)     | (6 bit)     | (6 bit)     |
 /// ---------------------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
+public unsafe struct OutwardPostalCode : IVariableLengthPrimitive<OutwardPostalCode>, ICastable<OutwardPostalCode, uint>
 {
     internal const int SizeInBytes = 3;
 
@@ -31,9 +31,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
     /// <inheritdoc/>
     public static int MaxLength { get; } = 4;
 
-    /// <summary>
-    /// The minimum length in characters of the <see langword="string"/> representation of <see cref="OutwardPostalCode"/>.
-    /// </summary>
+    /// <inheritdoc/>
     public static int MinLength { get; } = 2;
 
     /// <summary>
@@ -204,7 +202,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator OutwardPostalCode(ulong value)
+    public static explicit operator OutwardPostalCode(uint value)
     {
         OutwardPostalCode result = new();
         Helpers.SpreadBytes(value, result._value, SizeInBytes);
@@ -213,9 +211,9 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator ulong(OutwardPostalCode value)
+    public static explicit operator uint(OutwardPostalCode value)
     {
-        return Helpers.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<uint>(value._value, SizeInBytes);
     }
 
     /// <summary>

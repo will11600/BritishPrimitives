@@ -19,7 +19,7 @@ namespace BritishPrimitives;
 /// | (2 bits)   | (1 bit)       | (10 bits)      | (24 bits)        |
 /// ------------------------------------------------------------------
 [StructLayout(LayoutKind.Explicit)]
-public unsafe struct VatRegistrationNumber : IPrimitive<VatRegistrationNumber>
+public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistrationNumber>, ICastable<VatRegistrationNumber, ulong>
 {
     private const ushort Spaces = 0b000100100001000100;
 
@@ -443,33 +443,17 @@ public unsafe struct VatRegistrationNumber : IPrimitive<VatRegistrationNumber>
         }
     }
 
-    /// <summary>
-    /// Determines whether two specified <see cref="VatRegistrationNumber"/> objects have the same value.
-    /// </summary>
-    /// <param name="left">The first <see cref="VatRegistrationNumber"/> to compare.</param>
-    /// <param name="right">The second <see cref="VatRegistrationNumber"/> to compare.</param>
-    /// <returns>
-    /// <see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are equal;
-    /// otherwise, <see langword="false"/>.
-    /// </returns>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(VatRegistrationNumber left, VatRegistrationNumber right)
     {
-        return FixedSizeBufferExtensions.SequenceEquals(left._value, right._value, SizeInBytes);
+        return Helpers.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 
-    /// <summary>
-    /// Determines whether two specified <see cref="VatRegistrationNumber"/> objects have different values.
-    /// </summary>
-    /// <param name="left">The first <see cref="VatRegistrationNumber"/> to compare.</param>
-    /// <param name="right">The second <see cref="VatRegistrationNumber"/> to compare.</param>
-    /// <returns>
-    /// <see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are not equal;
-    /// otherwise, <see langword="false"/>.
-    /// </returns>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator !=(VatRegistrationNumber left, VatRegistrationNumber right)
     {
-        return !(left == right);
+        return !Helpers.SequenceEquals(left._value, right._value, SizeInBytes);
     }
 }

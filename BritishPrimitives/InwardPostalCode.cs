@@ -19,7 +19,7 @@ namespace BritishPrimitives;
 /// | (6 bit)     | (6 bit)     | (6 bit)     |
 /// -------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
+public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>, ICastable<InwardPostalCode, uint>
 {
     internal const int SizeInBytes = 3;
 
@@ -203,8 +203,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator InwardPostalCode(ulong value)
+    public static explicit operator InwardPostalCode(uint value)
     {
         InwardPostalCode result = new();
         Helpers.SpreadBytes(value, result._value, SizeInBytes);
@@ -212,10 +211,9 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator ulong(InwardPostalCode value)
+    public static explicit operator uint(InwardPostalCode value)
     {
-        return Helpers.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<uint>(value._value, SizeInBytes);
     }
 
     /// <summary>

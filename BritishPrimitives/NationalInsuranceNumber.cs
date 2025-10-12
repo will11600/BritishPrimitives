@@ -19,7 +19,7 @@ namespace BritishPrimitives;
 /// | (10 bits) | (20 bits)   | (2 bits)   |
 /// ----------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumber>
+public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<NationalInsuranceNumber>, ICastable<NationalInsuranceNumber, uint>
 {
     private const int SizeInBytes = 4;
 
@@ -31,6 +31,7 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
     /// <inheritdoc/>
     public static int MaxLength { get; }
 
+    /// <inheritdoc/>
     public static int MinLength { get; }
 
     private const int DeliminatedSegmentCount = 5;
@@ -365,14 +366,14 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator ulong(NationalInsuranceNumber ni)
+    public static explicit operator uint(NationalInsuranceNumber ni)
     {
-        return Helpers.ConcatenateBytes(ni._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<uint>(ni._value, SizeInBytes);
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator NationalInsuranceNumber(ulong value)
+    public static explicit operator NationalInsuranceNumber(uint value)
     {
         NationalInsuranceNumber ni = new();
         Helpers.SpreadBytes(value, ni._value, SizeInBytes);
