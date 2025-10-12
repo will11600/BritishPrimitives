@@ -1,4 +1,5 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Text;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -83,7 +84,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
             BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
             int position = 0;
 
-            if (!writer.TryPackDigit(ref position, payload[0]))
+            if (!writer.TryPackCharacter(ref position, payload[0], Transcoders.AlphanumericDigits))
             {
                 return Helpers.FalseOutDefault(out result);
             }
@@ -91,7 +92,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
             for (length = 1; length < payload.Length; length++)
             {
                 ref readonly char c = ref payload[length];
-                if (!_invalidLetters.Contains(c) && writer.TryPackLetter(ref position, c))
+                if (!_invalidLetters.Contains(c) && writer.TryPackCharacter(ref position, c, Transcoders.AlphanumericLetters))
                 {
                     continue;
                 }
@@ -181,7 +182,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
         fixed (byte* pValue = _value)
         {
             BitReader reader = BitReader.Create(pValue, SizeInBytes);
-            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
+            charsWritten = reader.UnpackCharacters(ref position, destination, Transcoders.Alphanumeric);
         }
 
         return charsWritten == MaxLength;

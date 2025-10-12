@@ -1,4 +1,5 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Text;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -24,23 +25,32 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
 
     private const string DisallowedPrefixes = "BGGBKNNKNTTNZZ";
 
-    private static readonly SearchValues<char> _disallowedPrefixChars = SearchValues.Create("DFIQUVdfiquv");
+    private static readonly SearchValues<char> _disallowedPrefixChars;
+    private static readonly CharacterTranscoder _suffixTranscoder;
 
     /// <inheritdoc/>
-    public static int MaxLength { get; } = 13;
+    public static int MaxLength { get; }
 
-    public static int MinLength { get; } = 9;
+    public static int MinLength { get; }
 
     private const int DeliminatedSegmentCount = 5;
     private const int SegmentLength = 2;
     private const int NumericalSegmentCount = 3;
 
-    private const char UppercaseD = 'D';
-    private const char LowercaseD = 'd';
-    private const int MaxSuffixValue = UppercaseD - Character.UppercaseA;
-
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
+
+    static NationalInsuranceNumber()
+    {
+        MaxLength = 13;
+        MinLength = 9;
+
+        CharacterRange uppercaseAToD = new(Character.UppercaseA, Character.UppercaseD);
+        CharacterRange lowercaseAToD = new(Character.UppercaseA, Character.UppercaseD);
+        _suffixTranscoder = new CharacterTranscoder([uppercaseAToD], [uppercaseAToD, lowercaseAToD]);
+
+        _disallowedPrefixChars = SearchValues.Create("DFIQUVdfiquv");
+    }
 
     /// <summary>
     /// Converts the span representation of a National Insurance Number to its <see cref="NationalInsuranceNumber"/> equivalent.
@@ -111,60 +121,43 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
 
     private static bool TryParseDeliminated(ref readonly BitWriter writer, ReadOnlySpan<char> s, Span<Range> ranges)
     {
-        Span<char> mainNumber = stackalloc char[NumericalSegmentCount * SegmentLength];
-        ParseSpaceDeliminatedMainNumber(s, ranges.Slice(1, NumericalSegmentCount), mainNumber);
-
+        var mainNumberRanges = ranges.Slice(1, NumericalSegmentCount);
         var prefix = s[ranges[0]];
         var suffix = s[ranges[4]];
 
         int position = 0;
-        return TryParsePrefix(in writer, prefix, ref position) && writer.TryPackInteger(ref position, mainNumber) && TryParseSuffix(in writer, suffix, ref position);
+        return TryPackPrefix(in writer, prefix, ref position)
+            && TryPackSpaceDeliminatedMainNumber(in writer, s, mainNumberRanges, ref position)
+            && writer.PackCharacters(ref position, suffix, _suffixTranscoder) == 1;
     }
 
-    private static void ParseSpaceDeliminatedMainNumber(ReadOnlySpan<char> s, Span<Range> ranges, Span<char> mainNumber)
+    private static bool TryParseCompact(ref readonly BitWriter writer, ReadOnlySpan<char> s)
     {
+        var prefix = s[..SegmentLength];
+        var suffix = s[^1..1];
+        var mainNumber = s[SegmentLength..^1];
+
+        int position = 0;
+        return TryPackPrefix(in writer, prefix, ref position) 
+            && writer.TryPackInteger(ref position, mainNumber) 
+            && writer.PackCharacters(ref position, suffix, _suffixTranscoder) == 1;
+    }
+
+    private static bool TryPackSpaceDeliminatedMainNumber(ref readonly BitWriter writer, ReadOnlySpan<char> s, Span<Range> ranges, ref int position)
+    {
+        Span<char> mainNumber = stackalloc char[ranges.Length * SegmentLength];
+
         for (int i = 0; i < ranges.Length; i++)
         {
             ReadOnlySpan<char> source = s[ranges[i]];
             Span<char> destination = mainNumber.Slice(i * SegmentLength, SegmentLength);
             source.CopyTo(destination);
         }
+
+        return writer.TryPackInteger(ref position, mainNumber);
     }
 
-    private static bool TryParseCompact(ref readonly BitWriter writer, ReadOnlySpan<char> s)
-    {
-        int position = 0;
-        var prefix = s[..SegmentLength];
-        var suffix = s[^1..1];
-        var mainNumber = s[SegmentLength..^1];
-        return TryParsePrefix(in writer, prefix, ref position) && writer.TryPackInteger(ref position, mainNumber) && TryParseSuffix(in writer, suffix, ref position);
-    }
-
-    private static bool TryParseSuffix(ref readonly BitWriter writer, ReadOnlySpan<char> suffix, ref int position)
-    {
-        if (suffix.Length != 1)
-        {
-            return false;
-        }
-
-        int normalizedChar;
-        char suffixChar = suffix[0];
-        switch (suffixChar)
-        {
-            case >= Character.LowercaseA and <= LowercaseD:
-                normalizedChar = suffixChar - Character.LowercaseA;
-                break;
-            case >= Character.UppercaseA and <= UppercaseD:
-                normalizedChar = suffixChar - Character.UppercaseA;
-                break;
-            default:
-                return false;
-        }
-        
-        return writer.TryPackInteger(ref position, (ulong)normalizedChar, MaxSuffixValue);
-    }
-
-    private static bool TryParsePrefix(ref readonly BitWriter writer, ReadOnlySpan<char> prefix, ref int position)
+    private static bool TryPackPrefix(ref readonly BitWriter writer, ReadOnlySpan<char> prefix, ref int position)
     {
         for (int i = 0; i < DisallowedPrefixes.Length; i += SegmentLength)
         {
@@ -182,7 +175,7 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
             }
         }
 
-        return !prefix[^1..1].Equals("O", StringComparison.OrdinalIgnoreCase) && writer.PackLetters(ref position, prefix, CharacterSet.Alphabetical) == SegmentLength;
+        return !prefix[^1..1].Equals("O", StringComparison.OrdinalIgnoreCase) && writer.PackCharacters(ref position, prefix, Transcoders.Alphabetical) == SegmentLength;
     }
 
     /// <summary>
@@ -271,10 +264,12 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
             BitReader reader = BitReader.Create(ptr, SizeInBytes);
             int position = 0;
 
-            int prefixCharsUnpacked = reader.UnpackLetters(ref position, prefix);
+            int prefixCharsUnpacked = reader.UnpackCharacters(ref position, prefix, Transcoders.Alphabetical);
             int mainNumberCharsUnpacked = reader.UnpackInteger(ref position, mainNumber);
 
-            if (prefixCharsUnpacked != prefix.Length || mainNumberCharsUnpacked != mainNumber.Length || !TryUnpackSuffix(in reader, ref position, out suffix))
+            if (prefixCharsUnpacked != prefix.Length 
+                || mainNumberCharsUnpacked != mainNumber.Length 
+                || reader.TryUnpackCharacter(ref position, _suffixTranscoder, out suffix))
             {
                 return Helpers.FalseOutDefault(out charsWritten);
             }
@@ -330,17 +325,6 @@ public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumbe
         destination[charsWritten++] = suffix;
 
         return true;
-    }
-
-    private static bool TryUnpackSuffix(ref readonly BitReader reader, ref int position, out char suffix)
-    {
-        if (reader.TryUnpackInteger(ref position, out ulong suffixValue, MaxSuffixValue))
-        {
-            suffix = (char)(suffixValue + Character.UppercaseA);
-            return true;
-        }
-
-        return Helpers.FalseOutDefault(out suffix);
     }
 
     /// <summary>

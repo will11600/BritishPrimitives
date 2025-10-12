@@ -1,4 +1,5 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -13,7 +14,7 @@ public readonly record struct PostalCode : IPrimitive<PostalCode>
 {
     private const int SizeInBytes = OutwardPostalCode.SizeInBytes + InwardPostalCode.SizeInBytes;
 
-    private static readonly int _inwardCodeShift = OutwardPostalCode.MaxLength * AlphanumericBitPacker.SizeInBits;
+    private static readonly int _inwardCodeShift = OutwardPostalCode.MaxLength * Transcoders.Alphanumeric.sizeInBits;
 
     /// <summary>
     /// The minimum length in characters of the <see langword="string"/> representation of <see cref="PostalCode"/>.

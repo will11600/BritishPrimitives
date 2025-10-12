@@ -1,4 +1,5 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Text;
 using System.Runtime.CompilerServices;
 
 namespace BritishPrimitives;
