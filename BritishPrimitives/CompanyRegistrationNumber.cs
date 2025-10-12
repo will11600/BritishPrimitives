@@ -9,12 +9,12 @@ namespace BritishPrimitives;
 /// <summary>
 /// Represents a UK Company Registration Number (CRN).
 /// </summary>
-/// Internal Bit Layout (42 bits):
+/// Internal Bit Layout (32-39 bits):
 /// ------------------------------------------
-/// | Bit 1       | Bits 2-14 | Bits 15-42   |
+/// | Bit 0       | Bits 1-11 | Bits 12-39   |
 /// |-------------|-----------|--------------|
 /// | Type Flag   | Prefix    | Main Number  |
-/// | (1 bit)     | (12 bits) | (20-27 bits) |
+/// | (1 bit)     | (10 bits) | (20-27 bits) |
 /// ------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
 public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationNumber>
