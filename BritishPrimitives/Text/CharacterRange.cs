@@ -17,15 +17,15 @@ internal readonly record struct CharacterRange : IReadOnlyCollection<char>
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(end, start, nameof(end));
         Start = start;
-        End = (char)(end + 1);
+        End = end;
         Offset = offset;
-        Count = End - Start;
+        Count = End - Start + 1;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains(char value)
     {
-        return value >= Start && value < End;
+        return value >= Start && value <= End;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,7 +42,7 @@ internal readonly record struct CharacterRange : IReadOnlyCollection<char>
 
     public IEnumerator<char> GetEnumerator()
     {
-        for (int i = Start; i < End; i++)
+        for (int i = Start; i <= End; i++)
         {
             yield return (char)i;
         }
