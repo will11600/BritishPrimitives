@@ -116,12 +116,15 @@ public sealed class PrimitiveIntegerConverter<TSource, TProduct> : PrimitiveConv
             throw new JsonException($"Reading numbers from strings is disabled. Set '{nameof(JsonNumberHandling.AllowReadingFromString)}' to enable.");
         }
 
-        if (TProduct.TryParse(reader.GetString(), FormatProvider, out TProduct number))
+        try
         {
-            return (TSource)number;
+            TProduct integer = Parse<TProduct>(in reader, _maxCharacterLength.Value);
+            return (TSource)integer;
         }
-
-        throw new JsonException($"The JSON string value could not be parsed as a {typeof(TProduct).Name} for type '{typeof(TSource).Name}'.");
+        catch (FormatException ex)
+        {
+            throw new JsonException($"The JSON string value could not be parsed as a {typeof(TProduct).Name} for type '{typeof(TSource).Name}'.", ex);
+        }
     }
 
     private static int CalculateMaxCharacterLength()

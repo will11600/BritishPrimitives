@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace BritishPrimitives.Json;
 
@@ -15,7 +14,7 @@ public sealed class PrimitiveStringConverter<TSource> : PrimitiveConverter<TSour
     /// </summary>
     /// <param name="format">The format string to use when writing the value.</param>
     /// <param name="formatProvider">The format provider to use when reading and writing the value.</param>
-    public PrimitiveStringConverter(string format, IFormatProvider formatProvider)
+    public PrimitiveStringConverter(string format, IFormatProvider formatProvider) : base()
     {
         Format = format;
         FormatProvider = formatProvider;
@@ -25,7 +24,7 @@ public sealed class PrimitiveStringConverter<TSource> : PrimitiveConverter<TSour
     /// Initializes a new instance of the <see cref="PrimitiveStringConverter{T}"/> class 
     /// using default formatting (null format and invariant culture).
     /// </summary>
-    public PrimitiveStringConverter()
+    public PrimitiveStringConverter() : base()
     {
         Format = default;
         FormatProvider = default;
@@ -45,16 +44,14 @@ public sealed class PrimitiveStringConverter<TSource> : PrimitiveConverter<TSour
             return default;
         }
 
-        if (!reader.HasValueSequence)
+        try
         {
-            Span<char> buffer = stackalloc char[TSource.MaxLength];
-            if (Encoding.UTF8.TryGetChars(reader.ValueSpan, buffer, out int charsWritten))
-            {
-                return TSource.Parse(buffer[..charsWritten], FormatProvider);
-            }
+            return Parse<TSource>(in reader, TSource.MaxLength);
         }
-
-        return TSource.Parse(reader.GetString(), FormatProvider);
+        catch (FormatException ex)
+        {
+            throw new JsonException($"Failed to parse the primitive type '{typeof(TSource).Name}'.", ex);
+        }
     }
 
     /// <summary>
