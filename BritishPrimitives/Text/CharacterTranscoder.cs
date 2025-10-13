@@ -82,20 +82,4 @@ internal sealed class CharacterTranscoder
         builder.Sort(comparison);
         return builder.ToImmutable();
     }
-
-    private static ImmutableArray<char> BuildCharacterSet(ReadOnlySpan<CharacterRange> ranges)
-    {
-        var builder = ImmutableArray.CreateBuilder<char>();
-
-        Span<CharacterRange> sortedRanges = stackalloc CharacterRange[ranges.Length];
-        ranges.CopyTo(sortedRanges);
-        sortedRanges.Sort(static (a, b) => a.Start.CompareTo(b.Start));
-
-        for (int i = 0; i < sortedRanges.Length; i++)
-        {
-            builder.AddRange(sortedRanges[i]);
-        }
-
-        return builder.ToImmutable();
-    }
 }
