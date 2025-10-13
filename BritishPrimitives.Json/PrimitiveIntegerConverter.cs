@@ -59,18 +59,27 @@ public sealed class PrimitiveIntegerConverter<TSource, TProduct> : PrimitiveConv
         };
     }
 
-    /// <summary>
-    /// Reads and converts the JSON representation of the <typeparamref name="TSource"/>.
-    /// </summary>
-    /// <param name="reader">The <see cref="Utf8JsonReader"/> to read from.</param>
-    /// <param name="typeToConvert">The type of object to convert.</param>
-    /// <param name="options">An object that specifies serialization options.</param>
-    /// <returns>The converted primitive integer value of type <typeparamref name="TSource"/>.</returns>
-    /// <exception cref="JsonException">
-    /// Thrown when the JSON token type is not <see cref="JsonTokenType.Null"/>, <see cref="JsonTokenType.String"/>, or <see cref="JsonTokenType.Number"/>,
-    /// or if a string value cannot be successfully parsed as an unsigned integer of type <typeparamref name="TProduct"/>,
-    /// or if <see cref="JsonNumberHandling.AllowReadingFromString"/> is not enabled and the token type is <see cref="JsonTokenType.String"/>.
-    /// </exception>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PrimitiveIntegerConverter{T,T}"/> class with specified format and format provider.
+    /// </summary>
+    /// <param name="format">The format string to use when writing the value.</param>
+    /// <param name="formatProvider">The format provider to use when reading and writing the value.</param>
+    public PrimitiveIntegerConverter(string? format, IFormatProvider? formatProvider = default)
+    {
+        Format = format;
+        FormatProvider = formatProvider;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PrimitiveIntegerConverter{T,T}"/> class with default settings.
+    /// </summary>
+    public PrimitiveIntegerConverter()
+    {
+        Format = default;
+        FormatProvider = default;
+    }
+
+    /// <inheritdoc/>
     public override TSource Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.TokenType switch
     {
         JsonTokenType.Null => default!,
@@ -80,15 +89,7 @@ public sealed class PrimitiveIntegerConverter<TSource, TProduct> : PrimitiveConv
           $"The JSON token type is not a valid number, string, or null for type '{typeof(TSource).Name}'. Received token type: {Enum.GetName(reader.TokenType)}.")
     };
 
-    /// <summary>
-    /// Writes the <typeparamref name="TSource"/> value as a JSON number or string.
-    /// </summary>
-    /// <param name="writer">The <see cref="Utf8JsonWriter"/> to write to.</param>
-    /// <param name="value">The primitive value of type <typeparamref name="TSource"/> to convert to JSON.</param>
-    /// <param name="options">An object that specifies serialization options, including <see cref="JsonNumberHandling"/>.</param>
-    /// <exception cref="JsonException">
-    /// Thrown if the primitive integer value cannot be formatted into a string when <see cref="JsonNumberHandling.WriteAsString"/> is enabled.
-    /// </exception>
+    /// <inheritdoc/>
     public override void Write(Utf8JsonWriter writer, TSource value, JsonSerializerOptions options)
     {
         TProduct number = (TProduct)value;
