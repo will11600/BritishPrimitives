@@ -14,7 +14,7 @@ internal sealed class CharacterTranscoder
     {
         _inputRanges = SortRanges(inputRanges, static (a, b) => a.Start.CompareTo(b.Start));
         _outputRanges = SortRanges(outputRanges, static (a, b) => a.Offset.CompareTo(b.Offset));
-        sizeInBits = BitOperations.Log2((uint)_inputRanges.Max(static r => r.Offset + r.Count) - 1U) + 1;
+        sizeInBits = BitOperations.Log2((uint)_outputRanges.Max(static r => r.Offset + r.Count) - 1U) + 1;
     }
 
     public bool TryEncode(char value, out int index)
