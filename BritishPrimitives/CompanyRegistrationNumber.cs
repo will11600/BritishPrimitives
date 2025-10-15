@@ -248,7 +248,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator ulong(CompanyRegistrationNumber value)
     {
-        return Helpers.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<ulong>(value._value, SizeInBytes);
     }
 
     /// <inheritdoc/>
