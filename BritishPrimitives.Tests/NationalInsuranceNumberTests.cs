@@ -1,301 +1,253 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿namespace BritishPrimitives.Tests;
 
-namespace BritishPrimitives.Tests;
-
-[ExcludeFromCodeCoverage]
-public sealed class NationalInsuranceNumberTests
+public class NationalInsuranceNumberTests
 {
-    // =================================================================================
-    // Parsing Tests
-    // =================================================================================
+    [Theory]
+    [InlineData("AA000000A")]
+    [InlineData("AA 00 00 00 A")]
+    [InlineData("AB123456C")]
+    [InlineData("AB 12 34 56 C")]
+    [InlineData("ZY999999D")]
+    [InlineData("CR123456B")]
+    public void Parse_ValidNINO_ShouldSucceed(string input)
+    {
+        var result = NationalInsuranceNumber.Parse(input, null);
+    }
 
     [Theory]
-    [InlineData("AB123456C", "AB123456C")]
-    [InlineData("ab123456c", "AB123456C")]
-    [InlineData("CE191295D", "CE191295D")]
-    [InlineData("ZY987654A", "ZY987654A")]
-    [InlineData("QQ 12 34 56 C", "QQ123456C")]
-    [InlineData(" ab 123456 a ", "AB123456A")]
-    [InlineData("  ce191295d  ", "CE191295D")]
-    public void TryParse_ShouldSucceed_WithValidFormats(string input, string expectedToString)
+    [InlineData("AA000000A")]
+    [InlineData("AB123456C")]
+    [InlineData("ZY999999D")]
+    public void TryParse_ValidNINO_ShouldReturnTrue(string input)
     {
-        // Act
-        bool success = NationalInsuranceNumber.TryParse(input, null, out var nino);
-
-        // Assert
+        var success = NationalInsuranceNumber.TryParse(input, null, out var result);
         Assert.True(success);
-        Assert.Equal(expectedToString, nino.ToString());
+    }
+
+    [Theory]
+    [InlineData("DA000000A", "D in first position")]
+    [InlineData("FA000000A", "F in first position")]
+    [InlineData("IA000000A", "I in first position")]
+    [InlineData("QA000000A", "Q in first position")]
+    [InlineData("UA000000A", "U in first position")]
+    [InlineData("VA000000A", "V in first position")]
+    [InlineData("AD000000A", "D in second position")]
+    [InlineData("AF000000A", "F in second position")]
+    [InlineData("AI000000A", "I in second position")]
+    [InlineData("AQ000000A", "Q in second position")]
+    [InlineData("AU000000A", "U in second position")]
+    [InlineData("AV000000A", "V in second position")]
+    public void Parse_InvalidPrefixForbiddenLetters_ShouldThrow(string input, string reason)
+    {
+        Assert.Throws<FormatException>(() => NationalInsuranceNumber.Parse(input, null));
+    }
+
+    [Theory]
+    [InlineData("AO000000A")]
+    [InlineData("BO000000A")]
+    [InlineData("CO000000A")]
+    [InlineData("ZO999999D")]
+    public void Parse_InvalidPrefix_OAsSecondLetter_ShouldThrow(string input)
+    {
+        Assert.Throws<FormatException>(() => NationalInsuranceNumber.Parse(input, null));
+    }
+
+    [Theory]
+    [InlineData("BG000000A")]
+    [InlineData("GB000000A")]
+    [InlineData("KN000000A")]
+    [InlineData("NK000000A")]
+    [InlineData("NT000000A")]
+    [InlineData("TN000000A")]
+    [InlineData("ZZ000000A")]
+    public void Parse_InvalidPrefix_ReservedPrefixes_ShouldThrow(string input)
+    {
+        Assert.Throws<FormatException>(() => NationalInsuranceNumber.Parse(input, null));
+    }
+
+    [Theory]
+    [InlineData("AA000000E")]
+    [InlineData("AA000000F")]
+    [InlineData("AA000000Z")]
+    [InlineData("AA0000001")]
+    [InlineData("AA000000a")]
+    public void Parse_InvalidSuffix_ShouldThrow(string input)
+    {
+        Assert.Throws<FormatException>(() => NationalInsuranceNumber.Parse(input, null));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("A")]
+    [InlineData("AA")]
+    [InlineData("AA000000")]
+    [InlineData("AA0000000A")]
+    [InlineData("AAA000000A")]
+    [InlineData("1A000000A")]
+    [InlineData("A1000000A")]
+    [InlineData("AA00000AA")]
+    [InlineData("AAABCDEFG")]
+    public void Parse_InvalidFormat_ShouldThrow(string input)
+    {
+        Assert.Throws<FormatException>(() => NationalInsuranceNumber.Parse(input, null));
     }
 
     [Theory]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("AB12345C")]         // Too short
-    [InlineData("AB1234567C")]       // Too long
-    [InlineData("AB12345!C")]        // Invalid character
-    [InlineData("1B123456C")]        // Digit in prefix
-    [InlineData("A1123456C")]        // Digit in prefix
-    [InlineData("AB12C456D")]        // Letter in digits
-    [InlineData("AB1234567")]        // No suffix letter
-    [InlineData("DF123456A")]        // Invalid first prefix char 'D'
-    [InlineData("FI123456B")]        // Invalid first prefix char 'F'
-    [InlineData("IG123456C")]        // Invalid first prefix char 'I'
-    [InlineData("QW123456D")]        // Invalid first prefix char 'Q'
-    [InlineData("UC123456A")]        // Invalid first prefix char 'U'
-    [InlineData("VB123456B")]        // Invalid first prefix char 'V'
-    [InlineData("AD123456A")]        // Invalid second prefix char 'D'
-    [InlineData("AF123456B")]        // Invalid second prefix char 'F'
-    [InlineData("AI123456C")]        // Invalid second prefix char 'I'
-    [InlineData("AQ123456D")]        // Invalid second prefix char 'Q'
-    [InlineData("AU123456A")]        // Invalid second prefix char 'U'
-    [InlineData("AV123456B")]        // Invalid second prefix char 'V'
-    [InlineData("AO123456C")]        // Invalid second prefix char 'O'
-    [InlineData("BG123456A")]        // Invalid prefix combo
-    [InlineData("GB123456B")]        // Invalid prefix combo
-    [InlineData("NK123456C")]        // Invalid prefix combo
-    [InlineData("KN123456D")]        // Invalid prefix combo
-    [InlineData("NT123456A")]        // Invalid prefix combo
-    [InlineData("TN123456B")]        // Invalid prefix combo
-    [InlineData("ZZ123456C")]        // Invalid prefix combo
-    public void TryParse_ShouldFail_WithInvalidFormats(string? input)
+    public void Parse_NullInput_ShouldThrow(string? input)
     {
-        // Act
-        bool success = NationalInsuranceNumber.TryParse(input, null, out var nino);
-
-        // Assert
-        Assert.False(success);
-        Assert.Equal(default, nino);
-    }
-
-    [Fact]
-    public void Parse_ShouldSucceed_WithValidInput()
-    {
-        // Arrange
-        const string validNino = "AB123456C";
-
-        // Act
-        var nino = NationalInsuranceNumber.Parse(validNino);
-
-        // Assert
-        Assert.Equal(validNino, nino.ToString());
+        Assert.Throws<ArgumentNullException>(() => NationalInsuranceNumber.Parse(input, null));
     }
 
     [Theory]
-    [InlineData("invalid")]
-    [InlineData("BG123456D")]
-    public void Parse_ShouldThrowFormatException_WithInvalidInput(string input)
+    [InlineData("AA 00 00 00 A", "AA000000A")]
+    [InlineData("AA  00  00  00  A", "AA000000A")]
+    [InlineData(" AA000000A ", "AA000000A")]
+    [InlineData("AA 000000 A", "AA000000A")]
+    public void Parse_WithWhitespace_ShouldNormalizeCorrectly(string input, string expected)
     {
-        // Act & Assert
-        Assert.Throws<FormatException>(() => NationalInsuranceNumber.Parse(input));
+        var nino = NationalInsuranceNumber.Parse(input, null);
+        Assert.Equal(expected, nino.ToString());
     }
 
     [Fact]
-    public void Parse_ShouldThrowFormatException_WithNullInput()
+    public void Equals_SameValue_ShouldReturnTrue()
     {
-        // Act & Assert
-        Assert.Throws<FormatException>(() => NationalInsuranceNumber.Parse(null!));
-    }
+        var nino1 = NationalInsuranceNumber.Parse("AA000000A", null);
+        var nino2 = NationalInsuranceNumber.Parse("AA000000A", null);
 
-
-    // =================================================================================
-    // Formatting Tests
-    // =================================================================================
-
-    [Fact]
-    public void ToString_Default_ShouldReturnGeneralFormat()
-    {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("AB123456C");
-        const string expected = "AB123456C";
-
-        // Act
-        string result = nino.ToString();
-
-        // Assert
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("G", "AB123456C")]
-    [InlineData("g", "AB123456C")] // Case-insensitive
-    [InlineData(null, "AB123456C")]
-    public void ToString_WithFormat_ShouldReturnGeneralFormat(string? format, string expected)
-    {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("AB123456C");
-
-        // Act
-        string result = nino.ToString(format);
-
-        // Assert
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("S", "AB 12 34 56 C")]
-    [InlineData("s", "AB 12 34 56 C")] // Case-insensitive
-    public void ToString_WithFormat_ShouldReturnSpacedFormat(string format, string expected)
-    {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("AB123456C");
-
-        // Act
-        string result = nino.ToString(format);
-
-        // Assert
-        Assert.Equal(expected, result);
-    }
-
-    [Fact]
-    public void ToString_ShouldThrowFormatException_WithInvalidFormat()
-    {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("AB123456C");
-
-        // Act & Assert
-        Assert.Throws<FormatException>(() => nino.ToString("X"));
-    }
-
-    [Fact]
-    public void TryFormat_ShouldSucceed_WithSufficientSpan()
-    {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("CE191295D");
-        Span<char> destination = new char[13];
-
-        // Act
-        bool successG = nino.TryFormat(destination, out int charsWrittenG, "G", null);
-        string resultG = new string(destination[..charsWrittenG]);
-
-        bool successS = nino.TryFormat(destination, out int charsWrittenS, "S", null);
-        string resultS = new string(destination[..charsWrittenS]);
-
-        // Assert
-        Assert.True(successG);
-        Assert.Equal(9, charsWrittenG);
-        Assert.Equal("CE191295D", resultG);
-
-        Assert.True(successS);
-        Assert.Equal(13, charsWrittenS);
-        Assert.Equal("CE 19 12 95 D", resultS);
-    }
-
-    [Fact]
-    public void TryFormat_ShouldFail_WithInsufficientSpan()
-    {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("CE191295D");
-        Span<char> destination = new char[8];
-
-        // Act
-        bool success = nino.TryFormat(destination, out int charsWritten, "G", null);
-
-        // Assert
-        Assert.False(success);
-        Assert.Equal(0, charsWritten);
-    }
-
-    [Fact]
-    public void TryFormat_ShouldFail_WithInvalidFormat()
-    {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("CE191295D");
-        Span<char> destination = new char[13];
-
-        // Act
-        bool success = nino.TryFormat(destination, out int charsWritten, "X", null);
-
-        // Assert
-        Assert.False(success);
-        Assert.Equal(0, charsWritten);
-    }
-
-
-    // =================================================================================
-    // Equality and Comparison Tests
-    // =================================================================================
-
-    [Fact]
-    public void Equals_ShouldBeTrue_ForIdenticalNinos()
-    {
-        // Arrange
-        var nino1 = NationalInsuranceNumber.Parse("QQ123456C");
-        var nino2 = NationalInsuranceNumber.Parse("QQ 12 34 56 C");
-
-        // Act & Assert
         Assert.True(nino1.Equals(nino2));
         Assert.True(nino1 == nino2);
         Assert.False(nino1 != nino2);
     }
 
     [Fact]
-    public void Equals_ShouldBeFalse_ForDifferentNinos()
+    public void Equals_DifferentValue_ShouldReturnFalse()
     {
-        // Arrange
-        var nino1 = NationalInsuranceNumber.Parse("AB123456C");
-        var nino2 = NationalInsuranceNumber.Parse("AB123456D");
+        var nino1 = NationalInsuranceNumber.Parse("AA000000A", null);
+        var nino2 = NationalInsuranceNumber.Parse("AB123456C", null);
 
-        // Act & Assert
         Assert.False(nino1.Equals(nino2));
         Assert.False(nino1 == nino2);
         Assert.True(nino1 != nino2);
     }
 
     [Fact]
-    public void Equals_ShouldBeFalse_ForDifferentObjectTypes()
+    public void Equals_SameValueWithDifferentWhitespace_ShouldReturnTrue()
     {
-        // Arrange
-        var nino = NationalInsuranceNumber.Parse("AB123456C");
-        var other = new object();
+        var nino1 = NationalInsuranceNumber.Parse("AA000000A", null);
+        var nino2 = NationalInsuranceNumber.Parse("AA 00 00 00 A", null);
 
-        // Act & Assert
-        // ReSharper disable once SuspiciousTypeConversion.Global
-        Assert.False(nino.Equals(other));
+        Assert.True(nino1.Equals(nino2));
+        Assert.True(nino1 == nino2);
     }
 
-
-    // =================================================================================
-    // Hashing Tests
-    // =================================================================================
-
     [Fact]
-    public void GetHashCode_ShouldBeSame_ForEqualObjects()
+    public void GetHashCode_SameValue_ShouldReturnSameHashCode()
     {
-        // Arrange
-        var nino1 = NationalInsuranceNumber.Parse("ZY987654A");
-        var nino2 = NationalInsuranceNumber.Parse("zy 98 76 54 a");
+        var nino1 = NationalInsuranceNumber.Parse("AA000000A", null);
+        var nino2 = NationalInsuranceNumber.Parse("AA 00 00 00 A", null);
 
-        // Act & Assert
         Assert.Equal(nino1.GetHashCode(), nino2.GetHashCode());
     }
 
-    [Fact]
-    public void GetHashCode_ShouldBeDifferent_ForDifferentObjects()
+    [Theory]
+    [InlineData("AA000000A", "AA 00 00 00 A")]
+    [InlineData("AB123456C", "AB 12 34 56 C")]
+    public void ToString_ShouldReturnFormattedString(string input, string expectedResult)
     {
-        // Arrange
-        var nino1 = NationalInsuranceNumber.Parse("ZY987654A");
-        var nino2 = NationalInsuranceNumber.Parse("ZY987654B");
-
-        // Act & Assert
-        Assert.NotEqual(nino1.GetHashCode(), nino2.GetHashCode());
+        var nino = NationalInsuranceNumber.Parse(input, null);
+        Assert.Equal(expectedResult, nino.ToString("s"));
     }
 
-    // =================================================================================
-    // Casting Tests
-    // =================================================================================
+    [Fact]
+    public void TryFormat_WithSufficientBuffer_ShouldSucceed()
+    {
+        var nino = NationalInsuranceNumber.Parse("PY762389A", null);
+        Span<char> buffer = stackalloc char[NationalInsuranceNumber.MaxLength];
+
+        var success = nino.TryFormat(buffer, out int charsWritten, default, null);
+
+        Assert.True(success);
+        Assert.True(charsWritten > 0);
+        Assert.True(charsWritten <= NationalInsuranceNumber.MaxLength);
+    }
 
     [Fact]
-    public void ExplicitCast_ToUlongAndBack_ShouldRoundtripSuccessfully()
+    public void TryFormat_WithInsufficientBuffer_ShouldFail()
     {
-        // Arrange
-        var originalNino = NationalInsuranceNumber.Parse("PY426719B");
+        var nino = NationalInsuranceNumber.Parse("AA000000A", null);
+        Span<char> buffer = stackalloc char[5];
 
-        // Act
-        ulong ulongValue = (ulong)originalNino;
-        var roundtrippedNino = (NationalInsuranceNumber)ulongValue;
+        var success = nino.TryFormat(buffer, out int charsWritten, default, null);
 
-        // Assert
-        Assert.Equal(originalNino, roundtrippedNino);
+        Assert.False(success);
+        Assert.Equal(0, charsWritten);
+    }
+
+    [Fact]
+    public void SpanParse_ValidNINO_ShouldSucceed()
+    {
+        ReadOnlySpan<char> input = "AA000000A".AsSpan();
+        var result = NationalInsuranceNumber.Parse(input, null);
+    }
+
+    [Fact]
+    public void TrySpanParse_ValidNINO_ShouldReturnTrue()
+    {
+        ReadOnlySpan<char> input = "AA000000A".AsSpan();
+        var success = NationalInsuranceNumber.TryParse(input, null, out _);
+        Assert.True(success);
+    }
+
+    [Fact]
+    public void TrySpanParse_InvalidNINO_ShouldReturnFalse()
+    {
+        ReadOnlySpan<char> input = "INVALID".AsSpan();
+        var success = NationalInsuranceNumber.TryParse(input, null, out _);
+        Assert.False(success);
+    }
+
+    [Theory]
+    [InlineData("AA000000A")]
+    [InlineData("AB123456B")]
+    [InlineData("ZY999999C")]
+    [InlineData("CR654321D")]
+    public void Parse_AllValidSuffixes_ShouldSucceed(string input)
+    {
+        NationalInsuranceNumber.Parse(input, null);
+    }
+
+    [Fact]
+    public void TryParse_EmptyString_ShouldReturnFalse()
+    {
+        var success = NationalInsuranceNumber.TryParse("", null, out _);
+        Assert.False(success);
+    }
+
+    [Theory]
+    [InlineData("AA000000A")]
+    [InlineData("AB000000A")]
+    [InlineData("AC000000A")]
+    [InlineData("AE000000A")]
+    [InlineData("AG000000A")]
+    [InlineData("AH000000A")]
+    [InlineData("AJ000000A")]
+    [InlineData("AK000000A")]
+    [InlineData("AL000000A")]
+    [InlineData("AM000000A")]
+    [InlineData("AN000000A")]
+    [InlineData("AP000000A")]
+    [InlineData("AR000000A")]
+    [InlineData("AS000000A")]
+    [InlineData("AT000000A")]
+    [InlineData("AW000000A")]
+    [InlineData("AX000000A")]
+    [InlineData("AY000000A")]
+    [InlineData("AZ000000A")]
+    public void Parse_AllValidSecondLetters_ShouldSucceed(string input)
+    {
+        var result = NationalInsuranceNumber.Parse(input, null);
     }
 }

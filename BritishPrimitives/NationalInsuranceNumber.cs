@@ -34,9 +34,9 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
     /// <inheritdoc/>
     public static int MinLength { get; }
 
-    private const int DeliminatedSegmentCount = 5;
-    private const int SegmentLength = 2;
-    private const int NumericalSegmentCount = 3;
+    private const int PrefixLength = 2;
+    private const int SuffixLength = 1;
+    private const int MainNumberLength = 6;
 
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
@@ -83,7 +83,9 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
     /// </exception>
     public static NationalInsuranceNumber Parse(string s, IFormatProvider? provider = null)
     {
-        if (s is not null && TryParse(s.AsSpan(), provider, out NationalInsuranceNumber ni))
+        ArgumentNullException.ThrowIfNull(s, nameof(s));
+
+        if (TryParse(s.AsSpan(), provider, out NationalInsuranceNumber ni))
         {
             return ni;
         }
@@ -103,66 +105,43 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out NationalInsuranceNumber result)
     {
-        Span<Range> ranges = stackalloc Range[DeliminatedSegmentCount];
-        int rangeCount = s.Split(ranges, Character.Whitespace, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        int charsWritten = 0;
+        Span<char> sanitized = stackalloc char[MinLength];
+        for (int i = 0; i < s.Length && charsWritten < MinLength; i++)
+        {
+            ref readonly char c = ref s[i];
+            if (c != Character.Whitespace)
+            {
+                sanitized[charsWritten++] = c;
+            }
+        }
+
+        if (charsWritten != MinLength)
+        {
+            return Helpers.FalseOutDefault(out result);
+        }
+
+        var prefix = sanitized[..PrefixLength];
+        var suffix = sanitized[^SuffixLength];
+        var mainNumber = sanitized[PrefixLength..^SuffixLength];
 
         result = new NationalInsuranceNumber();
 
         fixed (byte* ptr = result._value)
         {
             BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
-            return rangeCount switch
-            {
-                1 => TryParseCompact(in writer, s[ranges[0]]),
-                DeliminatedSegmentCount => TryParseDeliminated(in writer, s, ranges),
-                _ => Helpers.FalseOutDefault(out result),
-            };
+            int position = 0;
+            return TryPackPrefix(in writer, prefix, ref position)
+                && writer.TryPackInteger(ref position, mainNumber)
+                && writer.TryPackCharacter(ref position, suffix, _suffixTranscoder);
         }
-    }
-
-    private static bool TryParseDeliminated(ref readonly BitWriter writer, ReadOnlySpan<char> s, Span<Range> ranges)
-    {
-        var mainNumberRanges = ranges.Slice(1, NumericalSegmentCount);
-        var prefix = s[ranges[0]];
-        var suffix = s[ranges[4]];
-
-        int position = 0;
-        return TryPackPrefix(in writer, prefix, ref position)
-            && TryPackSpaceDeliminatedMainNumber(in writer, s, mainNumberRanges, ref position)
-            && writer.PackCharacters(ref position, suffix, _suffixTranscoder) == 1;
-    }
-
-    private static bool TryParseCompact(ref readonly BitWriter writer, ReadOnlySpan<char> s)
-    {
-        var prefix = s[..SegmentLength];
-        var suffix = s[^1..1];
-        var mainNumber = s[SegmentLength..^1];
-
-        int position = 0;
-        return TryPackPrefix(in writer, prefix, ref position) 
-            && writer.TryPackInteger(ref position, mainNumber) 
-            && writer.PackCharacters(ref position, suffix, _suffixTranscoder) == 1;
-    }
-
-    private static bool TryPackSpaceDeliminatedMainNumber(ref readonly BitWriter writer, ReadOnlySpan<char> s, Span<Range> ranges, ref int position)
-    {
-        Span<char> mainNumber = stackalloc char[ranges.Length * SegmentLength];
-
-        for (int i = 0; i < ranges.Length; i++)
-        {
-            ReadOnlySpan<char> source = s[ranges[i]];
-            Span<char> destination = mainNumber.Slice(i * SegmentLength, SegmentLength);
-            source.CopyTo(destination);
-        }
-
-        return writer.TryPackInteger(ref position, mainNumber);
     }
 
     private static bool TryPackPrefix(ref readonly BitWriter writer, ReadOnlySpan<char> prefix, ref int position)
     {
-        for (int i = 0; i < DisallowedPrefixes.Length; i += SegmentLength)
+        for (int i = 0; i < DisallowedPrefixes.Length; i += PrefixLength)
         {
-            if (prefix.Equals(DisallowedPrefixes.AsSpan(i, SegmentLength), StringComparison.OrdinalIgnoreCase))
+            if (prefix.Equals(DisallowedPrefixes.AsSpan(i, PrefixLength), StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -176,7 +155,7 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
             }
         }
 
-        return !prefix[^1..1].Equals("O", StringComparison.OrdinalIgnoreCase) && writer.PackCharacters(ref position, prefix, Transcoders.Alphabetical) == SegmentLength;
+        return prefix[^1] is not 'O' or 'o' && writer.PackCharacters(ref position, prefix, Transcoders.Alphabetical) == PrefixLength;
     }
 
     /// <summary>
@@ -225,7 +204,7 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
             return s[..charsWritten].ToString();
         }
 
-        throw new FormatException("The format is invalid.");
+        throw new FormatException(Helpers.FormatExceptionMessage);
     }
 
     /// <summary>
@@ -256,8 +235,8 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
             return Helpers.FalseOutDefault(out charsWritten);
         }
 
-        Span<char> prefix = stackalloc char[SegmentLength];
-        Span<char> mainNumber = stackalloc char[NumericalSegmentCount * SegmentLength];
+        Span<char> prefix = stackalloc char[PrefixLength];
+        Span<char> mainNumber = stackalloc char[MainNumberLength];
         char suffix;
 
         fixed (byte* ptr = _value)
@@ -270,7 +249,7 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
 
             if (prefixCharsUnpacked != prefix.Length 
                 || mainNumberCharsUnpacked != mainNumber.Length 
-                || reader.TryUnpackCharacter(ref position, _suffixTranscoder, out suffix))
+                || !reader.TryUnpackCharacter(ref position, _suffixTranscoder, out suffix))
             {
                 return Helpers.FalseOutDefault(out charsWritten);
             }
@@ -314,11 +293,11 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
 
         Helpers.AppendWhitespace(destination, ref charsWritten);
 
-        for (int i = 0; i < mainNumber.Length; i += SegmentLength)
+        for (int i = 0; i < mainNumber.Length; i += PrefixLength)
         {
-            var source = mainNumber.Slice(i, SegmentLength);
+            var source = mainNumber.Slice(i, PrefixLength);
             source.CopyTo(destination[charsWritten..]);
-            charsWritten += SegmentLength;
+            charsWritten += PrefixLength;
 
             Helpers.AppendWhitespace(destination, ref charsWritten);
         }
