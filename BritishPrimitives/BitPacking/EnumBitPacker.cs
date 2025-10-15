@@ -31,7 +31,7 @@ internal static class EnumBitPacker
 
         if (type.GetCustomAttribute<FlagsAttribute>() is null)
         {
-            return values.Length > 0 ? Convert.ToInt32(values.Max()) : 0;
+            return values.Length > 0 ? Convert.ToInt32(values.Max()) + 1 : 0;
         }
 
         int max = default;
