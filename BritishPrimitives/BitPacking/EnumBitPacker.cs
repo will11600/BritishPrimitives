@@ -7,7 +7,7 @@ internal static class EnumBitPacker
 {
     private static readonly ConcurrentDictionary<Type, ulong> _enumSizes = [];
 
-    public static unsafe bool TryPackEnum<T>(this ref readonly BitWriter writer, ref int position, T value) where T : struct, Enum
+    public static bool TryPackEnum<T>(this ref readonly BitWriter writer, ref int position, T value) where T : struct, Enum
     {
         ulong max = _enumSizes.GetOrAdd(typeof(T), CalculateEnumSize);
         return writer.TryPackInteger(ref position, Convert.ToUInt64(value), max);
