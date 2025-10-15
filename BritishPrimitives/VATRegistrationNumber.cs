@@ -259,13 +259,13 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
     {
         if (formatSpecifier == PrimitiveFormat.Spaced)
         {
-            return TryUnpackStandardSpaced(in reader, ref position, destination, charsWritten);
+            return TryUnpackStandardSpaced(in reader, ref position, destination, ref charsWritten);
         }
 
-        return TryUnpackStandard(in reader, ref position, destination, charsWritten);
+        return TryUnpackStandard(in reader, ref position, destination, ref charsWritten);
     }
 
-    private static bool TryUnpackStandardSpaced(ref readonly BitReader reader, ref int position, Span<char> destination, int charsWritten)
+    private static bool TryUnpackStandardSpaced(ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
     {
         if ((destination.Length - charsWritten) < SpaceDeliminatedStandardTypeLength)
         {
@@ -274,10 +274,11 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
 
         Span<char> slice = destination.Slice(charsWritten, SpaceDeliminatedStandardTypeLength);
         int digitsWritten = reader.UnpackInteger(ref position, slice, "000 0000 00");
+        charsWritten += digitsWritten;
         return digitsWritten == SpaceDeliminatedStandardTypeLength;
     }
 
-    private static bool TryUnpackStandard(ref readonly BitReader reader, ref int position, Span<char> destination, int charsWritten)
+    private static bool TryUnpackStandard(ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
     {
         if ((destination.Length - charsWritten) < StandardTypeLength)
         {
@@ -286,6 +287,7 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
 
         Span<char> slice = destination.Slice(charsWritten, StandardTypeLength);
         int digitsWritten = reader.UnpackInteger(ref position, slice);
+        charsWritten += digitsWritten;
         return digitsWritten == StandardTypeLength;
     }
 
@@ -295,12 +297,12 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
 
         if (formatSpecifier == PrimitiveFormat.Spaced)
         {
-            standardUnpacked = TryUnpackStandardSpaced(in reader, ref position, destination, charsWritten);
+            standardUnpacked = TryUnpackStandardSpaced(in reader, ref position, destination, ref charsWritten);
             destination[charsWritten++] = Character.Whitespace;
         }
         else
         {
-            standardUnpacked = TryUnpackStandard(in reader, ref position, destination, charsWritten);
+            standardUnpacked = TryUnpackStandard(in reader, ref position, destination, ref charsWritten);
         }
 
         if ((destination.Length - charsWritten) < BranchCodeLength)
