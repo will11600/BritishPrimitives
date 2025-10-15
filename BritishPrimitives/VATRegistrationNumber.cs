@@ -26,8 +26,6 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
 
     private const int SizeInBytes = 8;
 
-    private readonly static int _typeSizeInBytes = (int)Enum.GetValues<VatNumberType>().Max();
-
     /// <inheritdoc/>
     public static int MaxLength { get; } = PrefixLength + SpaceDeliminatedStandardTypeLength + BranchCodeLength + 1;
 
@@ -120,7 +118,7 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
             int position = 0;
 
             VatNumberType type = ParseType(payload, out int offset);
-            return writer.TryPackInteger(ref position, (ulong)type, (ulong)_typeSizeInBytes) && type switch
+            return writer.TryPackEnum(ref position, type) && type switch
             {
                 VatNumberType.Standard => TryParseStandardType(in writer, ref position, payload[offset..]),
                 VatNumberType.Branch => TryParseBranchType(in writer, ref position, payload[offset..]),
@@ -233,7 +231,7 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
             BitReader reader = BitReader.Create(ptr, SizeInBytes);
             int position = 0;
 
-            return reader.TryUnpackInteger(ref position, out ulong typeValue, (ulong)_typeSizeInBytes) && (VatNumberType)typeValue switch
+            return reader.TryUnpackEnum(ref position, out VatNumberType type) && type switch
             {
                 VatNumberType.Government => TryUnpackLetterPrefixed(GovernmentDeparmentPrefix, in reader, ref position, destination, ref charsWritten),
                 VatNumberType.Health => TryUnpackLetterPrefixed(HealthAuthorityPrefix, in reader, ref position, destination, ref charsWritten),
@@ -248,7 +246,7 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
         prefix.CopyTo(destination[charsWritten..]);
         charsWritten += prefix.Length;
 
-        Span<char> slice = destination.Slice(charsWritten, GovernmentAndHealthAuthorityTypeNumberLength);
+        Span<char> slice = destination.Slice(charsWritten, 3);
         int digitsWritten = reader.UnpackInteger(ref position, slice);
         charsWritten += digitsWritten;
 
