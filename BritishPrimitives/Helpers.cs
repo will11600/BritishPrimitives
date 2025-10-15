@@ -25,6 +25,23 @@ internal static class Helpers
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int StripWhitespace(ReadOnlySpan<char> input, Span<char> output)
+    {
+        int charsWritten = 0;
+
+        for (int i = 0; i < input.Length && charsWritten < output.Length; i++)
+        {
+            ref readonly char c = ref input[i];
+            if (c != Character.Whitespace)
+            {
+                output[charsWritten++] = c;
+            }
+        }
+
+        return charsWritten;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong Pow(uint x, uint y)
     {
         ulong result = 1;

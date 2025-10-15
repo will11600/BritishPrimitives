@@ -105,25 +105,17 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
     /// <returns><see langword="true"/> if <paramref name="s"/> was converted successfully; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out NationalInsuranceNumber result)
     {
-        int charsWritten = 0;
-        Span<char> sanitized = stackalloc char[MinLength];
-        for (int i = 0; i < s.Length && charsWritten < MinLength; i++)
-        {
-            ref readonly char c = ref s[i];
-            if (c != Character.Whitespace)
-            {
-                sanitized[charsWritten++] = c;
-            }
-        }
+        Span<char> payload = stackalloc char[MinLength];
+        int charsWritten = Helpers.StripWhitespace(s, payload);
 
         if (charsWritten != MinLength)
         {
             return Helpers.FalseOutDefault(out result);
         }
 
-        var prefix = sanitized[..PrefixLength];
-        var suffix = sanitized[^SuffixLength];
-        var mainNumber = sanitized[PrefixLength..^SuffixLength];
+        var prefix = payload[..PrefixLength];
+        var suffix = payload[^SuffixLength];
+        var mainNumber = payload[PrefixLength..^SuffixLength];
 
         result = new NationalInsuranceNumber();
 
