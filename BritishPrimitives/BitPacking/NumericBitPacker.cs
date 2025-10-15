@@ -64,19 +64,34 @@ internal static class NumericBitPacker
 
     public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars)
     {
-        return TryPackInteger(in writer, ref position, chars, NumberStyles.None, CultureInfo.InvariantCulture);
+        return TryPackInteger(in writer, ref position, chars, out _, NumberStyles.None, CultureInfo.InvariantCulture);
+    }
+
+    public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, out ulong result)
+    {
+        return TryPackInteger(in writer, ref position, chars, out result, NumberStyles.None, CultureInfo.InvariantCulture);
     }
 
     public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, IFormatProvider? formatProvider)
     {
-        return TryPackInteger(in writer, ref position, chars, NumberStyles.None, formatProvider);
+        return TryPackInteger(in writer, ref position, chars, out _, NumberStyles.None, formatProvider);
+    }
+
+    public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, out ulong result, IFormatProvider? formatProvider)
+    {
+        return TryPackInteger(in writer, ref position, chars, out result, NumberStyles.None, formatProvider);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryPackInteger(this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, NumberStyles styles, IFormatProvider? formatProvider = null)
+    public static bool TryPackInteger(this ref readonly BitWriter writer,
+                                      ref int position,
+                                      ReadOnlySpan<char> chars,
+                                      out ulong result,
+                                      NumberStyles styles,
+                                      IFormatProvider? formatProvider = null)
     {
         ulong max = MaxValueForDigitCount(chars.Length);
-        return ulong.TryParse(chars, styles, formatProvider, out ulong result) && writer.TryPackInteger(ref position, result, max);
+        return ulong.TryParse(chars, styles, formatProvider, out result) && writer.TryPackInteger(ref position, result, max);
     }
 
     public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars)
@@ -84,16 +99,45 @@ internal static class NumericBitPacker
         return UnpackInteger(in reader, ref position, chars, CultureInfo.InvariantCulture);
     }
 
+    public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars, ReadOnlySpan<char> format)
+    {
+        return UnpackInteger(in reader, ref position, chars, format, CultureInfo.InvariantCulture);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars, IFormatProvider? formatProvider)
     {
+        Span<char> format = stackalloc char[Log10MaxInt32PlusOne];
+        if (TryCreateDefaultFormat(chars.Length, format, out int formatLength))
+        {
+            return UnpackInteger(in reader, ref position, chars, format[..formatLength], formatProvider);
+        }
+
+        return default;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars, ReadOnlySpan<char> format, IFormatProvider? formatProvider)
+    {
         ulong max = MaxValueForDigitCount(chars.Length);
-        if (TryUnpackInteger(in reader, ref position, out ulong result, max) && TryFormatDigits(result, chars, formatProvider, out int charsWritten))
+        if (TryUnpackInteger(in reader, ref position, out ulong result, max) && result.TryFormat(chars, out int charsWritten, format, formatProvider))
         {
             return charsWritten;
         }
 
         return default;
+    }
+
+    private static bool TryCreateDefaultFormat(int length, Span<char> destination, out int charsWritten)
+    {
+        charsWritten = 0;
+        destination[charsWritten++] = 'D';
+        if (length.TryFormat(destination[charsWritten..], out int formatCharsWritten))
+        {
+            charsWritten += formatCharsWritten;
+            return true;
+        }
+        return false;
     }
 
     private static bool TryFormatDigits(ulong value, Span<char> chars, IFormatProvider? formatProvider, out int charsWritten)
