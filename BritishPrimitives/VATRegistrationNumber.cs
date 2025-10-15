@@ -1,9 +1,8 @@
 ﻿using BritishPrimitives.BitPacking;
-using BritishPrimitives.Mathematics;
+using BritishPrimitives.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static BritishPrimitives.CharUtils;
 
 namespace BritishPrimitives;
 
@@ -12,45 +11,36 @@ namespace BritishPrimitives;
 /// government, and health authority formats.
 /// </summary>
 /// Internal Bit Layout (40 bits):
-/// ------------------------------------------------------------------
-/// | Bits 0-1   | Bit 2         | Bits 3-13      | Bits 14-38       |
-/// |------------|---------------|----------------|------------------|
-/// | VAT Type   | UseMod97 Flag | Branch Code    | Main Number      |
-/// | (2 bits)   | (1 bit)       | (10 bits)      | (24 bits)        |
-/// ------------------------------------------------------------------
-[StructLayout(LayoutKind.Explicit)]
+/// ---------------------------------------------
+/// | Bits 0-1   | Bits 2-11   | Bits 11-21     |
+/// |------------|-------------|----------------|
+/// | VAT Type   | Main Number | Branch Code    |
+/// | (2 bits)   | (30 bits)   | (10 bits)      |
+/// ---------------------------------------------
+[StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
 public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistrationNumber>, ICastable<VatRegistrationNumber, ulong>
 {
-    private const ushort Spaces = 0b000100100001000100;
-
     private const string CountryCode = "GB";
-
-    private const int SizeInBytes = 5;
-
-    /// <inheritdoc/>
-    public static int MaxLength { get; } = 14;
-    private const int MinLength = 7;
-
-    private const int PrefixLength = 2;
-
-    private const int MainNumberSize = 24;
-    private const int MainNumberLength = 7;
-
-    private const int BranchCodeSize = 10;
-    private const int BranchCodeLength = 3;
-
-    private const int GovernmentAndHealthAuthorityTypeNumberLength = 5;
-
-    private const int BranchTypeNumberLength = 12;
-
-    private const int StandardTypeLength = 9;
-
-    private const int UseMod97FlagLength = 1;
-
-    private const int ChecksumLength = 2;
-
     private const string GovernmentDeparmentPrefix = "GD";
     private const string HealthAuthorityPrefix = "HA";
+
+    private const int SizeInBytes = 8;
+
+    private readonly static int _typeSizeInBytes = (int)Enum.GetValues<VatNumberType>().Max();
+
+    /// <inheritdoc/>
+    public static int MaxLength { get; } = PrefixLength + SpaceDeliminatedStandardTypeLength + BranchCodeLength + 1;
+
+    /// <inheritdoc/>
+    public static int MinLength { get; } = PrefixLength + GovernmentAndHealthAuthorityTypeNumberLength;
+
+    private const int StandardTypeLength = 9;
+    private const int GovernmentAndHealthAuthorityTypeNumberLength = 5;
+    private const int SpaceDeliminatedStandardTypeLength = StandardTypeLength + 2;
+    
+    private const int PrefixLength = 2;
+    private const int BranchCodeLength = 3;
+
     private const int MainNumberPrefixDivisor = 100000;
     private const int ReservedPrefixRangeStart = 1;
     private const int ReservedPrefixRangeEnd = 9;
@@ -74,7 +64,7 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
             return result;
         }
 
-        throw new FormatException("Invalid VAT registration number format.");
+        throw new FormatException(Helpers.FormatExceptionMessage);
     }
 
     /// <summary>
@@ -94,7 +84,7 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
             return result;
         }
 
-        throw new FormatException("Invalid VAT registration number format.");
+        throw new FormatException(Helpers.FormatExceptionMessage);
     }
 
     /// <summary>
@@ -114,88 +104,62 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
     /// </returns>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out VatRegistrationNumber result)
     {
-        Span<char> sanitized = stackalloc char[s.Length];
-        if (!TryParseAlphanumericUpperInvariant(s, sanitized, MinLength, MaxLength, out int charsWritten) || !sanitized.StartsWith(CountryCode))
+        Span<char> payload = stackalloc char[s.Length];
+        payload = payload[..Helpers.StripWhitespace(s, payload)];
+
+        if (payload.Length < MinLength)
         {
-            return FalseOutDefault(out result);
+            return Helpers.FalseOutDefault(out result);
         }
 
-        var payload = sanitized[CountryCode.Length..charsWritten];
-        VatRegistrationNumber vatNumber = new();
-        BitWriter writer = new(vatNumber._value, SizeInBytes);
-        int position = PrefixLength;
-        VatNumberType type;
+        result = new VatRegistrationNumber();
 
-        switch (payload.Length)
+        fixed (byte* bytePtr = result._value)
         {
-            case GovernmentAndHealthAuthorityTypeNumberLength:
-                switch (payload[..PrefixLength])
-                {
-                    case GovernmentDeparmentPrefix:
-                        type = VatNumberType.Government;
-                        goto WriteDigitsVerbatim;
-                    case HealthAuthorityPrefix:
-                        type = VatNumberType.Health;
-                        goto WriteDigitsVerbatim;
-                }
-                goto default;
-            case StandardTypeLength:
-                type = VatNumberType.Standard;
-                position += BranchCodeSize;
-                break;
-            case BranchTypeNumberLength:
-                type = VatNumberType.Branch;
-                if (writer.TryWriteNumber(ref position, payload[^3..], BranchCodeSize))
-                {
-                    break;
-                }
-                goto default;
-            default:
-                return false;
-        }
+            BitWriter writer = BitWriter.Create(bytePtr, SizeInBytes);
+            int position = 0;
 
-        if (!uint.TryParse(payload[..7], out uint mainNumber) || HasReservedPrefix(mainNumber) || !int.TryParse(payload[7..9], out int providedChecksum))
-        {
-            return false;
-        }
-
-        Mod9597Checksum checksum = new(mainNumber);
-        for (int i = 0; i < 2; i++)
-        {
-            bool useMod97 = i == 1;
-
-            if ((useMod97 ? checksum.Mod97 : checksum.Standard) != providedChecksum)
+            VatNumberType type = ParseType(payload, out int offset);
+            return writer.TryPackInteger(ref position, (ulong)type, (ulong)_typeSizeInBytes) && type switch
             {
-                useMod97 = true;
-                continue;
-            }
-
-            if (!writer.TryWriteBit(ref position, useMod97) || !writer.TryWriteNumber(ref position, mainNumber, MainNumberSize))
-            {
-                return false;
-            }
-
-            goto WriteType;
+                VatNumberType.Standard => TryParseStandardType(in writer, ref position, payload[offset..]),
+                VatNumberType.Branch => TryParseBranchType(in writer, ref position, payload[offset..]),
+                _ => writer.TryPackInteger(ref position, payload[offset..])
+            };
         }
-
-        return false;
-
-    WriteDigitsVerbatim:
-        position += BranchTypeNumberLength + UseMod97FlagLength;
-        var numberPart = payload[(PrefixLength + UseMod97FlagLength)..];
-        if (!writer.TryWriteNumber(ref position, numberPart, numberPart.Length))
-        {
-            return false;
-        }
-    WriteType:
-        position = 0;
-        return writer.TryWriteBits(ref position, (byte)type, PrefixLength);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool HasReservedPrefix(uint mainNumber)
+    private static bool TryParseStandardType(ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> s)
     {
-        return mainNumber / MainNumberPrefixDivisor is > ReservedPrefixRangeStart and < ReservedPrefixRangeEnd;
+        return s.Length == StandardTypeLength && TryPackMainNumber(in writer, ref position, s[..StandardTypeLength]);
+    }
+
+    private static bool TryParseBranchType(ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> s)
+    {
+        int length = StandardTypeLength + BranchCodeLength;
+        return s.Length == length && TryPackMainNumber(in writer, ref position, s[..StandardTypeLength]) && writer.TryPackInteger(ref position, s[^BranchCodeLength..]);
+    }
+
+    private static bool TryPackMainNumber(ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> s)
+    {
+        bool packed = writer.TryPackInteger(ref position, s, out ulong mainNumber);
+        return packed && (mainNumber / MainNumberPrefixDivisor) is < ReservedPrefixRangeStart or > ReservedPrefixRangeEnd;
+    }
+
+    private static VatNumberType ParseType(ReadOnlySpan<char> s, out int offset)
+    {
+        offset = s.StartsWith(CountryCode, StringComparison.OrdinalIgnoreCase) ? CountryCode.Length : 0;
+        switch (s.Slice(offset, PrefixLength))
+        {
+            case var prefix when MemoryExtensions.Equals(prefix, HealthAuthorityPrefix, StringComparison.OrdinalIgnoreCase):
+                offset += prefix.Length;
+                return VatNumberType.Health;
+            case var prefix when MemoryExtensions.Equals(prefix, GovernmentDeparmentPrefix, StringComparison.OrdinalIgnoreCase):
+                offset += prefix.Length;
+                return VatNumberType.Government;
+            default:
+                return (s.Length - offset) > StandardTypeLength ? VatNumberType.Branch : VatNumberType.Standard;
+        }
     }
 
     /// <summary>
@@ -213,13 +177,9 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
     /// <see langword="true"/> if <paramref name="s"/> was converted successfully;
     /// otherwise, <see langword="false"/>.
     /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out VatRegistrationNumber result)
     {
-        if (s is null)
-        {
-            return FalseOutDefault(out result);
-        }
-
         return TryParse(s.AsSpan(), provider, out result);
     }
 
@@ -255,124 +215,103 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
     /// </remarks>
     public readonly bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
     {
-        if (!PrimitiveFormat.TryParse(format, out char formatSpecifier))
+        if (!PrimitiveFormat.TryParse(format, out char specifier))
         {
-            return FalseOutDefault(out charsWritten);
+            return Helpers.FalseOutDefault(out charsWritten);
         }
 
-        charsWritten = 0;
-        Append(destination, CountryCode, ref charsWritten);
+        CountryCode.CopyTo(destination);
+        charsWritten = CountryCode.Length;
 
-        Bit useMod97 = Bit.Error;
-
-        fixed (byte* bytePtr = _value)
+        if (specifier == PrimitiveFormat.Spaced)
         {
-            BitReader reader = new(bytePtr, SizeInBytes);
+            destination[charsWritten++] = Character.Whitespace;
+        }
 
+        fixed (byte* ptr = _value)
+        {
+            BitReader reader = BitReader.Create(ptr, SizeInBytes);
             int position = 0;
 
-            if (!reader.TryReadBits(ref position, PrefixLength, out byte prefixByte))
+            return reader.TryUnpackInteger(ref position, out ulong typeValue, (ulong)_typeSizeInBytes) && (VatNumberType)typeValue switch
             {
-                return false;
-            }
-
-            switch ((VatNumberType)prefixByte)
-            {
-                case VatNumberType.Government:
-                    Append(destination, GovernmentDeparmentPrefix, ref charsWritten);
-                    goto WriteGovernmentOrHealthAuthorityNumber;
-                case VatNumberType.Health:
-                    Append(destination, HealthAuthorityPrefix, ref charsWritten);
-                    goto WriteGovernmentOrHealthAuthorityNumber;
-                case VatNumberType.Standard:
-                    useMod97 = reader.ReadBit(ref position);
-                    position += BranchCodeSize;
-                    goto WriteMainNumberOnly;
-                case VatNumberType.Branch:
-                    useMod97 = reader.ReadBit(ref position);
-                    goto WriteMainNumberAndBranchCode;
-            }
-
-        WriteMainNumberOnly:
-            if (TryWriteMainNumber(in reader, ref position, destination, ref charsWritten, useMod97))
-            {
-                goto InsertSpaces;
-            }
-            return false;
-
-        WriteMainNumberAndBranchCode:
-            if (reader.TryRead(ref position, BranchCodeSize, out ushort branchCode)
-                && TryWriteMainNumber(in reader, ref position, destination, ref charsWritten, useMod97)
-                && TryFormatDigits(branchCode, destination, BranchCodeLength, ref charsWritten))
-            {
-                goto InsertSpaces;
-            }
-            return false;
-
-        WriteGovernmentOrHealthAuthorityNumber:
-            if (WriteGovernmentOrHealthAuthorityNumber(in reader, ref position, destination, ref charsWritten))
-            {
-                goto InsertSpaces;
-            }
-            return false;
+                VatNumberType.Government => TryUnpackLetterPrefixed(GovernmentDeparmentPrefix, in reader, ref position, destination, ref charsWritten),
+                VatNumberType.Health => TryUnpackLetterPrefixed(HealthAuthorityPrefix, in reader, ref position, destination, ref charsWritten),
+                VatNumberType.Branch => TryUnpackBranch(specifier, in reader, ref position, destination, ref charsWritten),
+                _ => TryUnpackStandard(specifier, in reader, ref position, destination, ref charsWritten)
+            };
         }
-
-    InsertSpaces:
-        if (formatSpecifier != PrimitiveFormat.Spaced)
-        {
-            return true;
-        }
-
-        for (int i = 0; i < charsWritten; i++)
-        {
-            if (!ShouldInsertSpace(i))
-            {
-                continue;
-            }
-
-            var current = destination[i..charsWritten];
-            var moved = destination.Slice(i + 1, charsWritten - i);
-            current.CopyTo(moved);
-            destination[i] = Whitespace;
-            charsWritten++;
-        }
-
-        return true;
     }
 
-    private static bool TryWriteMainNumber(ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten, Bit useMod97)
+    private static bool TryUnpackLetterPrefixed(string prefix, ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
     {
-        if (!reader.TryRead(ref position, MainNumberSize, out uint mainNumber) || !TryFormatDigits(mainNumber, destination, MainNumberLength, ref charsWritten))
+        prefix.CopyTo(destination[charsWritten..]);
+        charsWritten += prefix.Length;
+
+        Span<char> slice = destination.Slice(charsWritten, GovernmentAndHealthAuthorityTypeNumberLength);
+        int digitsWritten = reader.UnpackInteger(ref position, slice);
+        charsWritten += digitsWritten;
+
+        return digitsWritten == slice.Length;
+    }
+
+    private static bool TryUnpackStandard(char formatSpecifier, ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
+    {
+        if (formatSpecifier == PrimitiveFormat.Spaced)
+        {
+            return TryUnpackStandardSpaced(in reader, ref position, destination, charsWritten);
+        }
+
+        return TryUnpackStandard(in reader, ref position, destination, charsWritten);
+    }
+
+    private static bool TryUnpackStandardSpaced(ref readonly BitReader reader, ref int position, Span<char> destination, int charsWritten)
+    {
+        if ((destination.Length - charsWritten) < SpaceDeliminatedStandardTypeLength)
         {
             return false;
         }
-        Mod9597Checksum checksum = new(mainNumber);
-        return useMod97 switch
+
+        Span<char> slice = destination.Slice(charsWritten, SpaceDeliminatedStandardTypeLength);
+        int digitsWritten = reader.UnpackInteger(ref position, slice, "000 0000 00");
+        return digitsWritten == SpaceDeliminatedStandardTypeLength;
+    }
+
+    private static bool TryUnpackStandard(ref readonly BitReader reader, ref int position, Span<char> destination, int charsWritten)
+    {
+        if ((destination.Length - charsWritten) < StandardTypeLength)
         {
-            Bit.False => TryFormatDigits(checksum.Standard, destination, ChecksumLength, ref charsWritten),
-            Bit.True => TryFormatDigits(checksum.Mod97, destination, ChecksumLength, ref charsWritten),
-            _ => false
-        };
+            return false;
+        }
+
+        Span<char> slice = destination.Slice(charsWritten, StandardTypeLength);
+        int digitsWritten = reader.UnpackInteger(ref position, slice);
+        return digitsWritten == StandardTypeLength;
     }
 
-    private static bool WriteGovernmentOrHealthAuthorityNumber(ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
+    private static bool TryUnpackBranch(char formatSpecifier, ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
     {
-        position += BranchCodeSize + UseMod97FlagLength;
-        return reader.TryRead(ref position, GovernmentAndHealthAuthorityTypeNumberLength, out uint result)
-               && TryFormatDigits(result, destination, GovernmentAndHealthAuthorityTypeNumberLength, ref charsWritten);
-    }
+        bool standardUnpacked;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool ShouldInsertSpace(int index)
-    {
-        return ((Spaces >> index) & 1) != 0;
-    }
+        if (formatSpecifier == PrimitiveFormat.Spaced)
+        {
+            standardUnpacked = TryUnpackStandardSpaced(in reader, ref position, destination, charsWritten);
+            destination[charsWritten++] = Character.Whitespace;
+        }
+        else
+        {
+            standardUnpacked = TryUnpackStandard(in reader, ref position, destination, charsWritten);
+        }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void Append(Span<char> destination, ReadOnlySpan<char> chars, ref int charsWritten)
-    {
-        chars.CopyTo(destination[charsWritten..]);
-        charsWritten += chars.Length;
+        if ((destination.Length - charsWritten) < BranchCodeLength)
+        {
+            return false;
+        }
+
+        Span<char> slice = destination.Slice(charsWritten, BranchCodeLength);
+        int digitsWritten = reader.UnpackInteger(ref position, slice);
+
+        return standardUnpacked && digitsWritten == slice.Length;
     }
 
     /// <summary>
@@ -407,14 +346,14 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
     /// <inheritdoc/>
     public static explicit operator ulong(VatRegistrationNumber value)
     {
-        return FixedSizeBufferExtensions.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<ulong>(value._value, SizeInBytes);
     }
 
     /// <inheritdoc/>
     public static explicit operator VatRegistrationNumber(ulong value)
     {
         VatRegistrationNumber n = new();
-        FixedSizeBufferExtensions.SpreadBytes(value, n._value, SizeInBytes);
+        Helpers.SpreadBytes(value, n._value, SizeInBytes);
         return n;
     }
 
@@ -426,6 +365,7 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
     /// <see langword="true"/> if <paramref name="obj"/> is a <see cref="VatRegistrationNumber"/>
     /// and equals the current instance; otherwise, <see langword="false"/>.
     /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override readonly bool Equals(object? obj)
     {
         return obj is VatRegistrationNumber number && Equals(number);
@@ -435,11 +375,12 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
     /// Returns the hash code for this <see cref="VatRegistrationNumber"/>.
     /// </summary>
     /// <returns>A 32-bit signed integer hash code.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode()
     {
         fixed (byte* ptr = _value)
         {
-            return FixedSizeBufferExtensions.BuildHashCode(ptr, SizeInBytes);
+            return Helpers.BuildHashCode(ptr, SizeInBytes);
         }
     }
 
