@@ -241,16 +241,10 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryUnpackLetterPrefixed(string prefix, ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
     {
-        prefix.CopyTo(destination[charsWritten..]);
-        charsWritten += prefix.Length;
-
-        Span<char> slice = destination.Slice(charsWritten, 3);
-        int digitsWritten = reader.UnpackInteger(ref position, slice);
-        charsWritten += digitsWritten;
-
-        return digitsWritten == slice.Length;
+        return Helpers.TryAppend(destination, prefix, ref charsWritten) && reader.TryAppendInteger(ref position, destination, ref charsWritten, 3);
     }
 
     private static bool TryUnpackStandard(char formatSpecifier, ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
@@ -276,17 +270,10 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
         return digitsWritten == SpaceDeliminatedStandardTypeLength;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryUnpackStandard(ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
     {
-        if ((destination.Length - charsWritten) < StandardTypeLength)
-        {
-            return false;
-        }
-
-        Span<char> slice = destination.Slice(charsWritten, StandardTypeLength);
-        int digitsWritten = reader.UnpackInteger(ref position, slice);
-        charsWritten += digitsWritten;
-        return digitsWritten == StandardTypeLength;
+        return reader.TryAppendInteger(ref position, destination, ref charsWritten, StandardTypeLength);
     }
 
     private static bool TryUnpackBranch(char formatSpecifier, ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
@@ -295,23 +282,15 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
 
         if (formatSpecifier == PrimitiveFormat.Spaced)
         {
-            standardUnpacked = TryUnpackStandardSpaced(in reader, ref position, destination, ref charsWritten);
-            destination[charsWritten++] = Character.Whitespace;
+            standardUnpacked = TryUnpackStandardSpaced(in reader, ref position, destination, ref charsWritten) 
+                && Helpers.TryAppend(destination, Character.Whitespace, ref charsWritten);
         }
         else
         {
             standardUnpacked = TryUnpackStandard(in reader, ref position, destination, ref charsWritten);
         }
 
-        if ((destination.Length - charsWritten) < BranchCodeLength)
-        {
-            return false;
-        }
-
-        Span<char> slice = destination.Slice(charsWritten, BranchCodeLength);
-        int digitsWritten = reader.UnpackInteger(ref position, slice);
-
-        return standardUnpacked && digitsWritten == slice.Length;
+        return standardUnpacked && reader.TryAppendInteger(ref position, destination, ref charsWritten, BranchCodeLength);
     }
 
     /// <summary>

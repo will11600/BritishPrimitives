@@ -83,15 +83,38 @@ internal static class NumericBitPacker
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryPackInteger(this ref readonly BitWriter writer,
-                                      ref int position,
-                                      ReadOnlySpan<char> chars,
-                                      out ulong result,
-                                      NumberStyles styles,
-                                      IFormatProvider? formatProvider = null)
+    public static bool TryPackInteger(
+        this ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> chars, out ulong result, NumberStyles styles, IFormatProvider? formatProvider = null)
     {
         ulong max = MaxValueForDigitCount(chars.Length);
         return ulong.TryParse(chars, styles, formatProvider, out result) && writer.TryPackInteger(ref position, result, max);
+    }
+
+    public static bool TryAppendInteger(this ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten, int length)
+    {
+        if ((charsWritten + length) > destination.Length)
+        {
+            return false;
+        }
+
+        var slice = destination.Slice(charsWritten, length);
+        int digitsWritten = UnpackInteger(in reader, ref position, slice, CultureInfo.InvariantCulture);
+        charsWritten += digitsWritten;
+        return digitsWritten == length;
+    }
+
+    public static bool TryAppendInteger(
+        this ref readonly BitReader reader, ref int position, Span<char> destination, ReadOnlySpan<char> format, ref int charsWritten, int length)
+    {
+        if ((charsWritten + length) > destination.Length)
+        {
+            return false;
+        }
+
+        var slice = destination.Slice(charsWritten, length);
+        int digitsWritten = UnpackInteger(in reader, ref position, slice, format, CultureInfo.InvariantCulture);
+        charsWritten += digitsWritten;
+        return digitsWritten == length;
     }
 
     public static int UnpackInteger(this ref readonly BitReader reader, ref int position, Span<char> chars)
