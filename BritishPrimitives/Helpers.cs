@@ -19,9 +19,61 @@ internal static class Helpers
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void AppendWhitespace(Span<char> chars, ref int charsWritten)
+    public static void Append(Span<char> destination, ReadOnlySpan<char> source, ref int charsWritten)
     {
-        chars[charsWritten++] = Character.Whitespace;
+        source.CopyTo(destination[charsWritten..]);
+        charsWritten += source.Length;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryAppend(Span<char> destination, ReadOnlySpan<char> source, ref int charsWritten, int buffer = 0)
+    {
+        if ((source.Length + charsWritten + buffer) > destination.Length)
+        {
+            return false;
+        }
+
+        Append(destination, source, ref charsWritten);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Append(Span<char> destination, char character, ref int charsWritten)
+    {
+        destination[charsWritten++] = character;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryAppend(Span<char> destination, char character, ref int charsWritten, int buffer = 0)
+    {
+        if ((1 + charsWritten + buffer) > destination.Length)
+        {
+            return false;
+        }
+
+        Append(destination, character, ref charsWritten);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryAppendJoin(char deliminator, Span<char> destination, ReadOnlySpan<char> source, ref int charsWritten, params ReadOnlySpan<Range> ranges)
+    {
+        int count = 0;
+        int length = ranges.Length - 1;
+
+        while (count < length)
+        {
+            if (TryAppend(destination, source[ranges[count]], ref charsWritten, 1))
+            {
+                destination[charsWritten++] = deliminator;
+                count++;
+                continue;
+            }
+
+            return false;
+        }
+
+        return TryAppend(destination, source[ranges[count]], ref charsWritten);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

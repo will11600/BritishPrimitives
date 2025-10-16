@@ -257,17 +257,12 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
         return TryUnpackStandard(in reader, ref position, destination, ref charsWritten);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryUnpackStandardSpaced(ref readonly BitReader reader, ref int position, Span<char> destination, ref int charsWritten)
     {
-        if ((destination.Length - charsWritten) < SpaceDeliminatedStandardTypeLength)
-        {
-            return false;
-        }
-
-        Span<char> slice = destination.Slice(charsWritten, SpaceDeliminatedStandardTypeLength);
-        int digitsWritten = reader.UnpackInteger(ref position, slice, "000 0000 00");
-        charsWritten += digitsWritten;
-        return digitsWritten == SpaceDeliminatedStandardTypeLength;
+        Span<char> mainNumber = stackalloc char[StandardTypeLength];
+        return reader.UnpackInteger(ref position, mainNumber) == StandardTypeLength 
+            && Helpers.TryAppendJoin(Character.Whitespace, destination, mainNumber, ref charsWritten, ..3, 3..7, 7..);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -283,7 +283,7 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
         prefix.CopyTo(destination);
         charsWritten = prefix.Length;
 
-        Helpers.AppendWhitespace(destination, ref charsWritten);
+        Helpers.Append(destination, Character.Whitespace, ref charsWritten);
 
         for (int i = 0; i < mainNumber.Length; i += PrefixLength)
         {
@@ -291,7 +291,7 @@ public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<National
             source.CopyTo(destination[charsWritten..]);
             charsWritten += PrefixLength;
 
-            Helpers.AppendWhitespace(destination, ref charsWritten);
+            Helpers.Append(destination, Character.Whitespace, ref charsWritten);
         }
 
         destination[charsWritten++] = suffix;
