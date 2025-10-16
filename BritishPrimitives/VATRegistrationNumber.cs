@@ -120,11 +120,17 @@ public unsafe struct VatRegistrationNumber : IVariableLengthPrimitive<VatRegistr
             VatNumberType type = ParseType(payload, out int offset);
             return writer.TryPackEnum(ref position, type) && type switch
             {
-                VatNumberType.Standard => TryParseStandardType(in writer, ref position, payload[offset..]),
+                VatNumberType.Government => TryParseGovernmentOrHealthAuthority(in writer, ref position, payload[offset..], max: 499U),
+                VatNumberType.Health => TryParseGovernmentOrHealthAuthority(in writer, ref position, payload[offset..], max: 999U, min: 500U),
                 VatNumberType.Branch => TryParseBranchType(in writer, ref position, payload[offset..]),
-                _ => writer.TryPackInteger(ref position, payload[offset..])
+                _ => TryParseStandardType(in writer, ref position, payload[offset..])
             };
         }
+    }
+
+    private static bool TryParseGovernmentOrHealthAuthority(ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> s, uint max, uint min = 0U)
+    {
+        return writer.TryPackInteger(ref position, s, out ulong result) && result >= min && result <= max;
     }
 
     private static bool TryParseStandardType(ref readonly BitWriter writer, ref int position, ReadOnlySpan<char> s)
