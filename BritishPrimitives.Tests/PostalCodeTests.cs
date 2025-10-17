@@ -17,6 +17,11 @@ public sealed class PostalCodeTests
     [InlineData("GIR 0AA")] // Girobank
     [InlineData("sw1a0aa")]
     [InlineData("Sw1A 0aA")]
+    [InlineData("FIQQ 1ZZ")] // Falklands Island
+    [InlineData("XX10 1DD")] // Amazon Returns
+    [InlineData("BX1 1LT")]
+    [InlineData("CR4 4BB")] //Mitcham in south London
+    [InlineData("BF1 0AB")] //British forces post
     public void TryParse_WithValidPostcodes_ShouldSucceed(string postcodeString)
     {
         // Act

@@ -1,6 +1,7 @@
 ﻿using BritishPrimitives.BitPacking;
 using BritishPrimitives.Text;
 using System.Buffers;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -23,16 +24,27 @@ public unsafe struct OutwardPostalCode : IVariableLengthPrimitive<OutwardPostalC
 {
     internal const int SizeInBytes = 3;
 
-    private const string GirobankBootle = "GIR";
-
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
 
-    /// <inheritdoc/>
-    public static int MaxLength { get; } = 4;
+    private static readonly SearchValues<string> _specialCases;
+
+    /// <inheritdoc/>
+    public static int MaxLength { get; } = 4;
 
     /// <inheritdoc/>
     public static int MinLength { get; } = 2;
+
+    static OutwardPostalCode()
+    {
+        ReadOnlySpan<string> specialCases =
+        [
+            "GIR", // Girobank Bootle
+            "FIQQ" // Falkland Island
+        ];
+
+        _specialCases = SearchValues.Create(specialCases, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Converts the span representation of an outward postal code to its <see cref="OutwardPostalCode"/> equivalent.
@@ -99,7 +111,7 @@ public unsafe struct OutwardPostalCode : IVariableLengthPrimitive<OutwardPostalC
             }          
         }
 
-        return payload.Equals(GirobankBootle, StringComparison.OrdinalIgnoreCase);
+        return payload.IndexOfAny(_specialCases) != -1;
     }
 
     /// <summary>
