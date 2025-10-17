@@ -1,4 +1,5 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Text;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -18,7 +19,7 @@ namespace BritishPrimitives;
 /// | (6 bit)     | (6 bit)     | (6 bit)     |
 /// -------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
+public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>, ICastable<InwardPostalCode, uint>
 {
     internal const int SizeInBytes = 3;
 
@@ -83,7 +84,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
             BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
             int position = 0;
 
-            if (!writer.TryPackDigit(ref position, payload[0]))
+            if (!writer.TryPackCharacter(ref position, payload[0], Transcoders.AlphanumericDigits))
             {
                 return Helpers.FalseOutDefault(out result);
             }
@@ -91,7 +92,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
             for (length = 1; length < payload.Length; length++)
             {
                 ref readonly char c = ref payload[length];
-                if (!_invalidLetters.Contains(c) && writer.TryPackLetter(ref position, c))
+                if (!_invalidLetters.Contains(c) && writer.TryPackCharacter(ref position, c, Transcoders.AlphanumericLetters))
                 {
                     continue;
                 }
@@ -181,7 +182,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
         fixed (byte* pValue = _value)
         {
             BitReader reader = BitReader.Create(pValue, SizeInBytes);
-            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
+            charsWritten = reader.UnpackCharacters(ref position, destination, Transcoders.Alphanumeric);
         }
 
         return charsWritten == MaxLength;
@@ -202,8 +203,7 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator InwardPostalCode(ulong value)
+    public static explicit operator InwardPostalCode(uint value)
     {
         InwardPostalCode result = new();
         Helpers.SpreadBytes(value, result._value, SizeInBytes);
@@ -211,10 +211,9 @@ public unsafe struct InwardPostalCode : IPrimitive<InwardPostalCode>
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator ulong(InwardPostalCode value)
+    public static explicit operator uint(InwardPostalCode value)
     {
-        return Helpers.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<uint>(value._value, SizeInBytes);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -8,12 +9,12 @@ namespace BritishPrimitives;
 /// <summary>
 /// Represents a UK Company Registration Number (CRN).
 /// </summary>
-/// Internal Bit Layout (42 bits):
+/// Internal Bit Layout (32-39 bits):
 /// ------------------------------------------
-/// | Bit 1       | Bits 2-14 | Bits 15-42   |
+/// | Bit 0       | Bits 1-11 | Bits 12-39   |
 /// |-------------|-----------|--------------|
 /// | Type Flag   | Prefix    | Main Number  |
-/// | (1 bit)     | (12 bits) | (20-27 bits) |
+/// | (1 bit)     | (10 bits) | (20-27 bits) |
 /// ------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
 public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationNumber>
@@ -22,7 +23,8 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     private const int SizeInBytes = 6;
     private const int PrefixLength = 2;
     private const int TypeFlagBitLength = 1;
-    private const int PrefixBitLength = PrefixLength * AlphanumericBitPacker.SizeInBits;
+
+    private static readonly int _prefixBitLength = PrefixLength * Transcoders.Alphabetical.sizeInBits;
 
     [FieldOffset(0)]
     private fixed byte _value[SizeInBytes];
@@ -107,7 +109,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
 
             bool isLetterPrefix;
             int mainNumberOffset;
-            switch (writer.PackLetters(ref position, payload[..PrefixLength]))
+            switch (writer.PackCharacters(ref position, payload[..PrefixLength], Transcoders.Alphabetical))
             {
                 case PrefixLength:
                     isLetterPrefix = true;
@@ -123,7 +125,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
 
             position = 0;
             bool prefixWritten = writer.TryPackBit(ref position, isLetterPrefix);
-            position += PrefixBitLength;
+            position += _prefixBitLength;
 
             return prefixWritten && writer.TryPackInteger(ref position, payload[mainNumberOffset..]);
         }
@@ -186,10 +188,10 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
             switch (reader.UnpackBit(ref position))
             {
                 case Bit.True:
-                    charsWritten += reader.UnpackAlphanumeric(ref position, destination[..PrefixLength]);
+                    charsWritten += reader.UnpackCharacters(ref position, destination[..PrefixLength], Transcoders.Alphabetical);
                     break;
                 case Bit.False:
-                    position += PrefixBitLength;
+                    position += _prefixBitLength;
                     break;
                 default:
                     return false;
@@ -246,7 +248,7 @@ public unsafe struct CompanyRegistrationNumber : IPrimitive<CompanyRegistrationN
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static explicit operator ulong(CompanyRegistrationNumber value)
     {
-        return Helpers.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<ulong>(value._value, SizeInBytes);
     }
 
     /// <inheritdoc/>

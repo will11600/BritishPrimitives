@@ -1,4 +1,5 @@
 ﻿using BritishPrimitives.BitPacking;
+using BritishPrimitives.Text;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -18,7 +19,7 @@ namespace BritishPrimitives;
 /// | (6 bit)     | (6 bit)     | (6 bit)     | (6 bit)     |
 /// ---------------------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
+public unsafe struct OutwardPostalCode : IVariableLengthPrimitive<OutwardPostalCode>, ICastable<OutwardPostalCode, uint>
 {
     internal const int SizeInBytes = 3;
 
@@ -30,9 +31,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
     /// <inheritdoc/>
     public static int MaxLength { get; } = 4;
 
-    /// <summary>
-    /// The minimum length in characters of the <see langword="string"/> representation of <see cref="OutwardPostalCode"/>.
-    /// </summary>
+    /// <inheritdoc/>
     public static int MinLength { get; } = 2;
 
     /// <summary>
@@ -87,14 +86,14 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
             BitWriter writer = BitWriter.Create(ptr, SizeInBytes);
             int position = 0;
 
-            int charsPacked = writer.PackLetters(ref position, payload);
+            int charsPacked = writer.PackCharacters(ref position, payload, Transcoders.AlphanumericLetters);
             if (charsPacked > 0 && charsPacked < payload.Length)
             {
-                charsPacked += writer.PackDigits(ref position, payload[charsPacked..]);
+                charsPacked += writer.PackCharacters(ref position, payload[charsPacked..], Transcoders.AlphanumericDigits);
                 return (payload.Length - charsPacked) switch
                 {
                     0 => true,
-                    1 => writer.TryPackLetter(ref position, payload[charsPacked]),
+                    1 => writer.TryPackCharacter(ref position, payload[charsPacked], Transcoders.AlphanumericLetters),
                     _ => false
                 };
             }          
@@ -181,7 +180,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
         fixed (byte* ptr = _value)
         {
             BitReader reader = BitReader.Create(ptr, SizeInBytes);
-            charsWritten = reader.UnpackAlphanumeric(ref position, destination);
+            charsWritten = reader.UnpackCharacters(ref position, destination, Transcoders.Alphanumeric);
         }
 
         return charsWritten >= MinLength && charsWritten <= MaxLength;
@@ -203,7 +202,7 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator OutwardPostalCode(ulong value)
+    public static explicit operator OutwardPostalCode(uint value)
     {
         OutwardPostalCode result = new();
         Helpers.SpreadBytes(value, result._value, SizeInBytes);
@@ -212,9 +211,9 @@ public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static explicit operator ulong(OutwardPostalCode value)
+    public static explicit operator uint(OutwardPostalCode value)
     {
-        return Helpers.ConcatenateBytes(value._value, SizeInBytes);
+        return Helpers.ConcatenateBytes<uint>(value._value, SizeInBytes);
     }
 
     /// <summary>
