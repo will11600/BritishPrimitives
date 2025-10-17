@@ -1,24 +1,24 @@
-![NuGet Version](https://img.shields.io/nuget/v/BritishPrimitives)
-![NuGet Downloads](https://img.shields.io/nuget/dt/BritishPrimitives)
-![GitHub License](https://img.shields.io/github/license/will11600/BritishPrimitives)
+[![NuGet Version](https://img.shields.io/nuget/v/BritishPrimitives)](https://www.nuget.org/packages/BritishPrimitives)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/BritishPrimitives)](https://www.nuget.org/packages/BritishPrimitives)
+[![GitHub License](https://img.shields.io/github/license/will11600/BritishPrimitives)](LICENSE.txt)
+
 
 ![British Primitives](https://raw.githubusercontent.com/will11600/BritishPrimitives/refs/heads/master/Wordmark.svg)
 
-## Introduction
+# Introduction
 
 `BritishPrimitives` is a .NET library that provides a set of primitive types for representing common UK-specific data formats. These types are designed to be lightweight and efficient, with a focus on performance and ease of use. The library also includes support for serialization and [Entity Framework Core](#Entity-Framework), making it easy to use in a variety of applications.
 
 The following table lists the types included in the library, along with their sizes in memory:
 
 
-| Type | Package Version | Size (bytes) |
-| --- | --- | --- |
-| `CompanyRegistrationNumber` | 1.0 | 6 |
-| `PostalCode` | 1.0 | 6 |
-| `NationalInsuranceNumber` | 2.0 | 5 |
-| `VATRegistrationNumber` | 2.0 | 5 |
+| Type | Size (bytes) |
+| --- | --- |
+| `CompanyRegistrationNumber` | 6 |
+| `NationalInsuranceNumber` | 5 |
+| `PostalCode` | 8 |
 
-## Installation
+# Installation
 
 You can install the library through the NuGet Package Manager:
 
@@ -26,7 +26,7 @@ You can install the library through the NuGet Package Manager:
 Install-Package BritishPrimitives
 ```
 
-## Validation & Initialization
+# Validation & Initialization
 
 All of the primitive types in this library can be initialized in a similar way. For example, you can create a `PostalCode` from a string, and the library will validate the format for you:
 
@@ -47,7 +47,7 @@ if (PostalCode.TryParse("SW1A 0AA", out var postcode))
 }
 ```
 
-## Serialization
+# Serialization
 
 All of the structs in this library can be marshaled directly into bytes. They also provide explicit conversions to and from `ulong` for easy binary serialization:
 
@@ -56,11 +56,11 @@ var postcode = PostalCode.Parse("SW1A 0AA");
 ulong value = (ulong)postcode;
 ```
 
-### JSON
+## JSON
 
 The `BritishPrimitives.Json` library provides converters for serializing and deserializing the primitive types to and from JSON. You can serialize them as either strings or integers.
 
-#### Installation
+### Installation
 
 You can install the library through the NuGet Package Manager:
 
@@ -68,11 +68,11 @@ You can install the library through the NuGet Package Manager:
 Install-Package BritishPrimitives.Json
 ```
 
-#### Usage
+### Usage
 
 You can use the converters in two main ways: either by applying the `[JsonConverter]` attribute directly to a property or by adding a converter factory to `JsonSerializerOptions`.
 
-##### Using Converters Directly with attributes
+#### Using Converters Directly with attributes
 
 For individual properties, you can apply the JSON converter attribute with either `PrimitiveStringConverter<T>` or `PrimitiveIntegerConverter<T>`.
 
@@ -89,7 +89,7 @@ public class MyModel
 }
 ```
 
-##### Using Converter Factories
+#### Using Converter Factories
 
 For a more general approach, you can use `PrimitiveStringConverterFactory` or `PrimitiveIntegerConverterFactory` to handle all primitive types in your model.
 
@@ -107,12 +107,11 @@ var model = new MyModel { Crn = CompanyRegistrationNumber.Parse("12345678") };
 var json = JsonSerializer.Serialize(model, options);
 ```
 
-### Entity Framework
-![NuGet Version](https://img.shields.io/nuget/v/BritishPrimitives.EntityFramework)
+## Entity Framework
 
 The `BritishPrimitives.EntityFramework` library provides value converters for Entity Framework Core. You can use these converters to store the primitive types in your database as either strings or integers.
 
-#### Installation
+### Installation
 
 You can install the library through the NuGet Package Manager:
 
@@ -120,9 +119,9 @@ You can install the library through the NuGet Package Manager:
 Install-Package BritishPrimitives.EntityFramework
 ```
 
-#### Usage
+### Usage
 
-##### The Model
+#### The Model
 
 ```csharp
 using BritishPrimitives.EntityFramework;
@@ -134,7 +133,7 @@ public class Address
 }
 ```
 
-##### The DbContext
+#### The DbContext
 
 ```csharp
 using BritishPrimitives.EntityFramework;
