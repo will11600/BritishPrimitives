@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -13,6 +14,8 @@ public abstract class PrimitiveConverterFactory : JsonConverterFactory
     private static readonly ConcurrentDictionary<Type, JsonConverter?> _converters = [];
 
     private readonly object?[] _constructorParameters = new object?[2];
+
+    private static readonly Type _primitiveInterface = typeof(IPrimitive<>);
 
     /// <summary>
     /// Gets the format string used for serialization, if specified.
@@ -35,7 +38,7 @@ public abstract class PrimitiveConverterFactory : JsonConverterFactory
     /// <inheritdoc/>
     public override bool CanConvert(Type typeToConvert)
     {
-        return typeToConvert.IsAssignableTo(typeof(IPrimitive<>));
+        return _converters.ContainsKey(typeToConvert) || ImplementsPrimitiveInterface(typeToConvert) || typeToConvert.GetInterfaces().Any(ImplementsPrimitiveInterface);
     }
 
     /// <inheritdoc/>
@@ -71,4 +74,10 @@ public abstract class PrimitiveConverterFactory : JsonConverterFactory
     /// or <see langword="null"/> if no converter is available for the type.
     /// </returns>
     protected abstract Type? ConverterOf(Type typeToConvert);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ImplementsPrimitiveInterface(Type type)
+    {
+        return type.IsGenericType && type.GetGenericTypeDefinition() == _primitiveInterface;
+    }
 }
