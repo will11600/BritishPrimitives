@@ -19,7 +19,7 @@ namespace BritishPrimitives;
 /// | (10 bits) | (20 bits)   | (2 bits)   |
 /// ----------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public unsafe struct NationalInsuranceNumber : IVariableLengthPrimitive<NationalInsuranceNumber>, ICastable<NationalInsuranceNumber, uint>
+public unsafe struct NationalInsuranceNumber : IPrimitive<NationalInsuranceNumber>, IMin, ICastable<NationalInsuranceNumber, uint>
 {
     private const int SizeInBytes = 4;
 

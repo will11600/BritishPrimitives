@@ -20,7 +20,7 @@ namespace BritishPrimitives;
 /// | (6 bit)     | (6 bit)     | (6 bit)     | (6 bit)     |
 /// ---------------------------------------------------------
 [StructLayout(LayoutKind.Explicit, Size = SizeInBytes)]
-public unsafe struct OutwardPostalCode : IVariableLengthPrimitive<OutwardPostalCode>, ICastable<OutwardPostalCode, uint>
+public unsafe struct OutwardPostalCode : IPrimitive<OutwardPostalCode>, IMin, ICastable<OutwardPostalCode, uint>
 {
     internal const int SizeInBytes = 3;
 
