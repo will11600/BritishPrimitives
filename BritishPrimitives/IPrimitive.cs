@@ -9,7 +9,7 @@
 /// This interface enforces static abstract members which are checked by the compiler.
 /// It combines several foundational interfaces to ensure a consistent primitive representation.
 /// </remarks>
-public interface IPrimitive<TSelf> : IEquatable<TSelf>, ISpanParsable<TSelf>, ISpanFormattable, IMax where TSelf : struct, IPrimitive<TSelf>
+public interface IPrimitive<TSelf> : IEquatable<TSelf>, ISpanParsable<TSelf>, IMaxFormattable where TSelf : struct, IPrimitive<TSelf>
 {
     /// <summary>
     /// Determines whether two specified <typeparamref name="TSelf"/> objects have the same value.
